@@ -26,30 +26,35 @@ class BaseSprite(pg.sprite.Sprite):
         self.in_sprite_list = True
         self.app_handler.sprites.append(self)
         self.app_handler.in_group.add(self)
+        self.check_visibility()
 
 
     def update(self):
-        if self.toggle_visibility() or True:
-            self.x, self.y = self.entity.x - self.app_handler.cam_x, self.entity.y - self.app_handler.cam_y
-            self.rect.center = self.x, self.y
-            #self.move()
+        self.x, self.y = self.entity.x - self.app_handler.cam_x, self.entity.y - self.app_handler.cam_y
+        self.rect.center = self.x, self.y
+        if not self.check_visibility():
+            if self.in_sprite_list:
+                self.app_handler.in_group.remove(self)
+                self.app_handler.sprites.remove(self)
+                self.in_sprite_list = False
 
-    def toggle_visibility(self):
+    def check_visibility(self):
+        self.x, self.y = self.entity.x - self.app_handler.cam_x, self.entity.y - self.app_handler.cam_y
+        self.rect.center = self.x, self.y
         visible = True
         if self.x < 0 or self.x >= WIN_W:
             visible = False
         elif self.y < 0 or self.y >= WIN_H:
             visible = False
 
-
-        if visible and not self.in_sprite_list:
-            self.in_sprite_list = True
-            self.app_handler.in_group.add(self)
-            self.app_handler.sprites.append(self)
-        if not visible and self.in_sprite_list:
-            self.in_sprite_list = False
-            self.app_handler.in_group.remove(self)
-            self.app_handler.sprites.remove(self)
+        if visible:
+            if not self.in_sprite_list:
+                self.app_handler.sprites.append(self)
+                self.app_handler.in_group.add(self)
+                self.in_sprite_list = True
+            return True
+        else:
+            return False
 
 
 class AppHandler:
@@ -97,7 +102,7 @@ class AppHandler:
     def update(self):
         # Update both groups
         self.load_chunk()
-        #self.in_group.update()
+        self.in_group.update()
         self.move()
         self.interact()
 
@@ -113,7 +118,7 @@ class AppHandler:
                 self.map.load_chunk(chunk_coordinates)
                 for chunk_x in self.map.chunks.get(chunk_coordinates).tiles:
                     for tile in chunk_x:
-                        tile[1].update()
+                        tile[1].check_visibility()
 
 
     def get_loading_zone(self):
