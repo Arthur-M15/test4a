@@ -40,7 +40,7 @@ class Map:
 
 
 class Chunk:
-    def __init__(self, app_handler, x, y):
+    def __init__(self, app_handler, x, y, is_loaded=False):
         self.x = x
         self.y = y
         self.biome_name = "classic"
@@ -51,6 +51,7 @@ class Chunk:
         self.bottom_signal = None
         self.left_signal = None
         self.right_signal = None
+        self.is_loaded = is_loaded
 
     def get_information(self):
         """
@@ -116,6 +117,7 @@ class Chunk:
             top_end_derivative = None
             bottom_end_derivative = None
 
+
         if not top_signal:
             top_signal = create_curve(top_begin, top_end, top_begin_derivative, top_end_derivative)
         if not bottom_signal:
@@ -124,6 +126,10 @@ class Chunk:
             left_signal = create_curve(left_begin, left_end, left_begin_derivative, left_end_derivative)
         if not right_signal:
             right_signal = create_curve(right_begin, right_end, right_begin_derivative, right_end_derivative)
+
+        # TEST
+        if len(top_signal)==0 or len(bottom_signal) ==0 or len(left_signal)==0 or len(right_signal)== 0:
+            pass
 
         self.top_signal = top_signal
         self.bottom_signal = bottom_signal
@@ -136,7 +142,8 @@ class Chunk:
 
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
-        matrix = [[[0, None]] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
+        matrix = [[[0.0, None] for _ in range(CHUNK_SIZE)] for _ in range(CHUNK_SIZE)]
+
 
         absolute_chunk_x = self.x * TILE_SIZE * CHUNK_SIZE
         absolute_chunk_y = self.y * TILE_SIZE * CHUNK_SIZE
@@ -149,8 +156,8 @@ class Chunk:
             for j in range(CHUNK_SIZE):
                 matrix[i][j][0] = (x_matrix[i][j] + y_matrix[j][i]) / 2
                 x, y = absolute_chunk_x + i * TILE_SIZE, absolute_chunk_y + j * TILE_SIZE
-
-                matrix[i][j][1] = BaseSprite(self.app_handler, Tile(self.app_handler, x, y, matrix[i][j][0])) # Tile(self.app_handler, absolute_chunk_x + i * TILE_SIZE, absolute_chunk_y + j * TILE_SIZE, matrix[i][j][0], matrix[i][j][0])
+                tile = Tile(self.app_handler,x, y, matrix[i][j][0])
+                matrix[i][j][1] = BaseSprite(self.app_handler, tile)
         return matrix
 
 
@@ -161,18 +168,21 @@ def create_curve(start=None, stop=None, start_derivative=0, stop_derivative=0, v
     for i in range(1, HARMONIC_NUMBER+1):
         random_phase = random.uniform(-math.pi, math.pi)
         random_amplitude = random.uniform(0, 1)
+        random_amplitude = 1
         for j in range(CHUNK_SIZE):
-            base_signal[j] += (random_amplitude / i) * math.sin((variations * j * i * 2 * math.pi)/CHUNK_SIZE + random_phase)
+            base_signal[j] += (random_amplitude / i) * math.sin(((2 * math.pi * j)/CHUNK_SIZE) + random_phase)
 
     if start:
         offset = start - base_signal[0]
         derivative = start_derivative - (base_signal[1] - base_signal[0])
-        base_signal += correct_curve(offset, derivative, True)
+        base_signal2 = [a + b for a, b in zip(base_signal, correct_curve(offset, derivative, True))]
+        base_signal = base_signal2
     if stop:
         offset = stop - base_signal[-1]
         derivative = stop_derivative - (base_signal[-2] - base_signal[-1])
-        base_signal += correct_curve(offset, derivative, False)
-
+        corrective = correct_curve(offset, derivative, False)
+        base_signal2 = [a + b for a, b in zip(base_signal, corrective)]
+        base_signal = base_signal2
     return base_signal
 
 def correct_curve(offset, derivative, starting):
@@ -198,14 +208,16 @@ def correct_curve(offset, derivative, starting):
     if starting:
         first = 0
         last = CHUNK_SIZE
+        increment = 1
     else:
         first = CHUNK_SIZE - 1
         last = -1
+        increment = -1
     signal_correction = []
-    for x in range(first, last):
+    for x in range(first, last, increment):
         f_x = -a * math.exp(-x)
         g_x = (math.cos((2 * math.pi * x) / (2 * c)) + 1) / 2
-        h_x = b * math.exp(-((5 * x) / c) ** 2)
+        h_x = b * math.exp(-((5 * x) / (4 * c)) ** 2)
 
         # r(x) = (f(x) + h(x)) * g(x)
         r_x = (f_x + h_x) * g_x

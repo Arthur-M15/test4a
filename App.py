@@ -3,10 +3,7 @@ import os
 from entities.biomes import *
 from Settings import *
 from Map import *
-
-
-
-
+import time
 
 class BaseSprite(pg.sprite.Sprite):
     def __init__(self, app_handler, entity, x=0, y=0):
@@ -16,60 +13,58 @@ class BaseSprite(pg.sprite.Sprite):
         :param y: Relative y position of the object on the window
         """
         self.app_handler = app_handler
-        super().__init__(app_handler.in_group)
+        super().__init__()
+        self.in_sprite_list = False
         #todo : add sprite_name conditions
         self.entity = entity
         self.image = self.entity.image
+        self.image_size = max(self.entity.image.get_rect().height, self.entity.image.get_rect().width)
         self.rect = self.entity.image.get_rect()
         self.orig_rect = self.rect.copy()
         self.x, self.y = self.app_handler.cam_x - self.entity.x, self.app_handler.cam_y - self.entity.y
-        self.in_sprite_list = True
-        self.app_handler.sprites.append(self)
-        self.app_handler.in_group.add(self)
-        self.check_visibility()
+
+        self.offset_x = (WIN_W - TOTAL_WIDTH)/2
+        self.offset_y = (WIN_H - TOTAL_WIDTH)/2
+
 
 
     def update(self):
-        self.x, self.y = self.entity.x - self.app_handler.cam_x, self.entity.y - self.app_handler.cam_y
+        self.x, self.y = self.entity.x - self.app_handler.cam_x + self.offset_x, self.entity.y - self.app_handler.cam_y + self.offset_y
         self.rect.center = self.x, self.y
-        if not self.check_visibility():
-            if self.in_sprite_list:
-                self.app_handler.in_group.remove(self)
-                self.app_handler.sprites.remove(self)
-                self.in_sprite_list = False
+
 
     def check_visibility(self):
-        self.x, self.y = self.entity.x - self.app_handler.cam_x, self.entity.y - self.app_handler.cam_y
-        self.rect.center = self.x, self.y
         visible = True
-        if self.x < 0 or self.x >= WIN_W:
+        self.update()
+        if self.x < 0 - self.image_size or self.x >= WIN_W + self.image_size:
             visible = False
-        elif self.y < 0 or self.y >= WIN_H:
+        elif self.y < 0 - self.image_size or self.y >= WIN_H + self.image_size:
             visible = False
+        return visible
 
-        if visible:
-            if not self.in_sprite_list:
-                self.app_handler.sprites.append(self)
-                self.app_handler.in_group.add(self)
-                self.in_sprite_list = True
-            return True
-        else:
-            return False
+    def add_to_group(self):
+        if not self.in_sprite_list:
+            self.app_handler.in_group.add(self)
+            self.in_sprite_list = True
 
+    def remove_from_group(self):
+        if self.in_sprite_list:
+            self.app_handler.in_group.remove(self)
+            self.in_sprite_list = False
 
 class AppHandler:
     def __init__(self, app):
-        self.cam_x = - WIN_W/2
-        self.cam_y = - WIN_H/2
-        self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
-        self.loaded_biome_sprites = {}
         self.app = app
+        self.cam_x = 0
+        self.cam_y = 0
+        self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
+        self.loaded_sprites = {}
+        self.visible_chunks = []
         self.load_assets()
         self.map = Map(self)
         self.in_group = pg.sprite.Group()
         self.pause_group = {}
-        self.sprites = []
-        self.param_hud = pg.Surface([WIN_W, WIN_H])
+        self.param_hud = pg.Surface([400, 200])
         self.font = ft.SysFont('Verdana', FONT_SIZE)
 
 
@@ -80,7 +75,7 @@ class AppHandler:
                 for file in files if file.endswith(".png")}
             if images:
                 folder_name = os.path.basename(root)
-                self.loaded_biome_sprites[folder_name] = images
+                self.loaded_sprites[folder_name] = images
 
 
     def move(self):
@@ -101,36 +96,68 @@ class AppHandler:
 
     def update(self):
         # Update both groups
-        self.load_chunk()
-        self.in_group.update()
+        self.load_chunks()
+        #self.refresh_tiles()
         self.move()
         self.interact()
+        self.in_group.update()
 
         if self.in_group.spritedict:
             sorted_in_group_x = {sprite: value for sprite, value in sorted(self.in_group.spritedict.items(), key=lambda item: item[0].x)}
             sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(), key=lambda item: item[0].y)}
             self.in_group.spritedict = sorted_in_group
 
-    def load_chunk(self):
+    def load_chunks(self):
+
         if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or self.map.chunks == {}:
+            previous_chunks = self.visible_chunks
             self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
-            for chunk_coordinates in self.get_loading_zone():
-                self.map.load_chunk(chunk_coordinates)
-                for chunk_x in self.map.chunks.get(chunk_coordinates).tiles:
-                    for tile in chunk_x:
-                        tile[1].check_visibility()
+            loading_zones = self.get_loading_zone()
+            self.visible_chunks = self.get_visible_chunks()
+
+            for chunk_coordinates in self.visible_chunks:
+                if chunk_coordinates in loading_zones:
+                    if not self.map.chunks.get(chunk_coordinates):
+                        self.map.load_chunk(chunk_coordinates)
+                    for chunk_x in self.map.chunks.get(chunk_coordinates).tiles:
+                        for tile in chunk_x:
+                            tile[1].add_to_group()
+
+            for chunk_coordinates in previous_chunks:
+                if chunk_coordinates not in self.visible_chunks and self.map.chunks.get(chunk_coordinates):
+                    for chunk_x in self.map.chunks.get(chunk_coordinates).tiles:
+                        for tile in chunk_x:
+                            tile[1].remove_from_group()
 
 
     def get_loading_zone(self):
-        return [(self.chunk_position[0] + i+2, self.chunk_position[1] + j+2)
-                for i in range(0, CHUNK_LOAD_DISTANCE)
-                for j in range(0, CHUNK_LOAD_DISTANCE)]
+        return [
+            (self.chunk_position[0] + i, self.chunk_position[1] + j)
+            for i in range(0, int(CHUNK_LOAD_DISTANCE))
+            for j in range(0, CHUNK_LOAD_DISTANCE)
+        ]
+
+    def get_visible_chunks(self):
+        max_chunks_width = WIN_W // (CHUNK_SIZE * TILE_SIZE)
+        max_chunks_height = WIN_H // (CHUNK_SIZE * TILE_SIZE)
+
+        chunk_offset_x = int(((WIN_W - TOTAL_WIDTH + CHUNK_WIDTH)/2)//CHUNK_WIDTH)
+        chunk_offset_y = int(((WIN_H - TOTAL_WIDTH + CHUNK_WIDTH)/2)//CHUNK_WIDTH)
+
+        return [
+            (i, j)
+            for i in range(self.chunk_position[0] - chunk_offset_x - 1, 1 + self.chunk_position[0] + max_chunks_width - chunk_offset_x + 1)
+            for j in range(self.chunk_position[1] - chunk_offset_y - 1, 1 + self.chunk_position[1] + max_chunks_height - chunk_offset_y + 1)
+        ]
+
+
 
     #todo : move this
     def add_entity(self):
         (x, y) = pygame.mouse.get_pos()
         new_entity = BaseSprite(self, Tile(self, x + self.cam_x, y + self.cam_y, -1), x, y)
         self.map.entities.append(new_entity)
+
 
     def get_chunk_position(self, position=None):
         """
@@ -151,21 +178,18 @@ class AppHandler:
         self.in_group.draw(self.app.renderer)
 
     def draw_hud(self):
-        self.param_hud.fill((0, 0, 0, 0))
         self.param_hud.set_colorkey((0, 0, 0))
 
         # Récupération des informations à afficher
         active_sprites = len(self.in_group)
-        passive_sprites = len([])
-        sprite_list_size = len(self.sprites)
+        total_tiles = len(self.map.chunks) * CHUNK_SIZE * CHUNK_SIZE
         fps = self.app.clock.get_fps()
         cam_coord = f"x: {self.cam_x} | y: {self.cam_y}"
 
         # Liste des lignes de texte à afficher
         lines = [
             f"Active sprites: {active_sprites}",
-            f"Passive sprites: {passive_sprites}",
-            f"Sprite list size: {sprite_list_size}",
+            f"Passive sprites: {total_tiles}",
             f"{fps:.2f} fps",  # Limitez les FPS à deux décimales
             cam_coord
         ]
@@ -181,12 +205,12 @@ class AppHandler:
 
         # Affichage du HUD final
         hud = Texture.from_surface(self.app.renderer, self.param_hud)
-        hud.draw((0, 0, *[WIN_W, WIN_H]), (0, 0, *[WIN_W, WIN_H]))
+        hud.draw((0, 0, *[300, 200]), (0, 0, *[300, 200]))
 
 class App:
     def __init__(self):
         pg.init()
-        self.window_size = window_width, window_height = 1600, 900
+        self.window_size = window_width, window_height = WIN_W, WIN_H
         self.window = Window(size=self.window_size)     # Create a window
         self.renderer = Renderer(self.window)           # Rendering the content in the window
         self.renderer.draw_color = (0, 0, 0, 255)       # Fill it with black
@@ -196,7 +220,6 @@ class App:
         self.keybind = {}
 
     def update_screen(self):
-        self.app_handler.update()
         self.dt = self.clock.tick(MAX_FPS) * 0.001  # Time for each frame
         self.renderer.clear()
         self.app_handler.update()
@@ -239,7 +262,7 @@ class App:
             self.update_screen()
             self.inputs()
 
-
 if __name__ == '__main__':
     game_app = App()
     game_app.run_application()
+
