@@ -4,6 +4,11 @@ from entities.biomes import *
 import math
 import random
 
+
+
+from test_tools import *
+
+
 class Map:
     def __init__(self, app_handler):
         self.app_handler = app_handler
@@ -37,7 +42,6 @@ class Map:
 
             self.chunks[(x, y)] = Chunk(self.app_handler, x, y)
             self.chunks[(x, y)].create(top_chunk, bottom_chunk, left_chunk, right_chunk)
-
 
 class Chunk:
     def __init__(self, app_handler, x, y, is_loaded=False):
@@ -135,29 +139,33 @@ class Chunk:
         self.bottom_signal = bottom_signal
         self.left_signal = left_signal
         self.right_signal = right_signal
+
+        #generator = ChunkGenerator(CHUNK_SIZE, TILE_SIZE, self.x, self.y, self.app_handler, top_signal, bottom_signal, left_signal, right_signal)
+        #self.tiles = measure_function(generator.generate_matrix)
         self.tiles = self.__generate_matrix()
 
 
     def __generate_matrix(self):
-
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         matrix = [[[0.0, None] for _ in range(CHUNK_SIZE)] for _ in range(CHUNK_SIZE)]
 
-
         absolute_chunk_x = self.x * TILE_SIZE * CHUNK_SIZE
         absolute_chunk_y = self.y * TILE_SIZE * CHUNK_SIZE
+        chunk_number = len(self.app_handler.map.chunks)
 
         for i in range(CHUNK_SIZE):
             for j in range(CHUNK_SIZE):
                 x_matrix[i][j] = (self.top_signal[i] - ((j / CHUNK_SIZE) * (self.top_signal[i] - self.bottom_signal[i])))
                 y_matrix[i][j] = (self.left_signal[i] - ((j / CHUNK_SIZE) * (self.left_signal[i] - self.right_signal[i])))
+
         for i in range(CHUNK_SIZE):
             for j in range(CHUNK_SIZE):
                 matrix[i][j][0] = (x_matrix[i][j] + y_matrix[j][i]) / 2
                 x, y = absolute_chunk_x + i * TILE_SIZE, absolute_chunk_y + j * TILE_SIZE
                 tile = Tile(self.app_handler,x, y, matrix[i][j][0])
-                matrix[i][j][1] = BaseSprite(self.app_handler, tile)
+                matrix[i][j][1] = measure_function(f"chunks: {chunk_number} aaa", BaseSprite, self.app_handler, tile)
+
         return matrix
 
 
@@ -167,10 +175,11 @@ def create_curve(start=None, stop=None, start_derivative=0, stop_derivative=0, v
 
     for i in range(1, HARMONIC_NUMBER+1):
         random_phase = random.uniform(-math.pi, math.pi)
-        random_amplitude = random.uniform(0, 1)
+        #random_amplitude = random.uniform(-1, 1)
+        random_offset = random.uniform(-0.5, 0.5)
         random_amplitude = 1
         for j in range(CHUNK_SIZE):
-            base_signal[j] += (random_amplitude / i) * math.sin(((2 * math.pi * j)/CHUNK_SIZE) + random_phase)
+            base_signal[j] += random_offset + (random_amplitude / i) * math.sin(((2 * math.pi * j)/CHUNK_SIZE) + random_phase)
 
     if start:
         offset = start - base_signal[0]
@@ -186,7 +195,6 @@ def create_curve(start=None, stop=None, start_derivative=0, stop_derivative=0, v
     return base_signal
 
 def correct_curve(offset, derivative, starting):
-    # Import in Desmos graph the formulas:
     """
     f\left(x\right)=-ae^{-x}
     g\left(x\right)=\frac{\left(\cos\left(\frac{2\pi x}{2c}\right)+1\right)}{2}
@@ -196,6 +204,8 @@ def correct_curve(offset, derivative, starting):
     b=1
     c=10
     """
+    # Import in Desmos graph the formulas:
+
     # With
     # a derivative
     # b-a the offset

@@ -1,31 +1,34 @@
 import pygame.mouse
 import os
-from entities.biomes import *
 from Settings import *
 from Map import *
-import time
+from pyximport import install ; install()
+import threading
+lock = threading.Lock()
+from test_tools import *
 
-class BaseSprite(pg.sprite.Sprite):
+
+class BaseSprite:
     def __init__(self, app_handler, entity, x=0, y=0):
         """
         :param app_handler: The handler of the game
         :param x: Relative x position of the object on the window
         :param y: Relative y position of the object on the window
         """
+        start2 = time.time()
         self.app_handler = app_handler
-        super().__init__()
         self.in_sprite_list = False
         #todo : add sprite_name conditions
         self.entity = entity
         self.image = self.entity.image
-        self.image_size = max(self.entity.image.get_rect().height, self.entity.image.get_rect().width)
+        self.image_size = entity.max_size
         self.rect = self.entity.image.get_rect()
         self.orig_rect = self.rect.copy()
         self.x, self.y = self.app_handler.cam_x - self.entity.x, self.app_handler.cam_y - self.entity.y
 
         self.offset_x = (WIN_W - TOTAL_WIDTH)/2
         self.offset_y = (WIN_H - TOTAL_WIDTH)/2
-
+        print_time(time.time() - start2, "inside_base", 0.01)
 
 
     def update(self):
@@ -44,12 +47,12 @@ class BaseSprite(pg.sprite.Sprite):
 
     def add_to_group(self):
         if not self.in_sprite_list:
-            self.app_handler.in_group.add(self)
+            self.app_handler.in_group.add_internal(self)
             self.in_sprite_list = True
 
     def remove_from_group(self):
         if self.in_sprite_list:
-            self.app_handler.in_group.remove(self)
+            self.app_handler.in_group.remove_internal(self)
             self.in_sprite_list = False
 
 class AppHandler:
@@ -66,7 +69,24 @@ class AppHandler:
         self.pause_group = {}
         self.param_hud = pg.Surface([400, 200])
         self.font = ft.SysFont('Verdana', FONT_SIZE)
+        self.tick_divider = 0
 
+    def get_sprite(self, category, name):
+        try:
+            profiler = cProfile.Profile()
+            profiler.enable()
+            time_stamp = time.time()
+            value = self.loaded_sprites[category][name]
+
+            profiler.disable()
+            if print_time(time.time() - time_stamp, "gen_mat", 0.03):
+                stats = pstats.Stats(profiler)
+                stats.sort_stats('time').print_stats(10)
+
+            return value
+        except:
+            print("sprite_tag error")
+        return None
 
     def load_assets(self):
         for root, dirs, files in os.walk(BIOME_SPRITE_DIR_PATH):
@@ -93,11 +113,16 @@ class AppHandler:
         if 'left_click' in game_app.keybind:
             self.add_entity()
 
+    def timing_function(self, frequency, function, *args, **kwargs):
+        if self.tick_divider % frequency == 0:
+            self.tick_divider += 1
+            function(*args, **kwargs)
+        else:
+            self.tick_divider += 1
+
 
     def update(self):
-        # Update both groups
         self.load_chunks()
-        #self.refresh_tiles()
         self.move()
         self.interact()
         self.in_group.update()
@@ -107,9 +132,21 @@ class AppHandler:
             sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(), key=lambda item: item[0].y)}
             self.in_group.spritedict = sorted_in_group
 
-    def load_chunks(self):
+    def sort_sprite_group(self):
+        if self.in_group.spritedict:
+            sorted_in_group_x = {sprite: value for sprite, value in sorted(self.in_group.spritedict.items(), key=lambda item: item[0].x)}
+            sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(), key=lambda item: item[0].y)}
+            self.in_group.spritedict = sorted_in_group
 
+    def load_chunks(self):
         if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or self.map.chunks == {}:
+            self.load_chunks_thread()
+            """if not lock.locked():
+                thread = threading.Thread(target=self.load_chunks_thread)
+                thread.start()"""
+
+    def load_chunks_thread(self):
+        with lock:
             previous_chunks = self.visible_chunks
             self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
             loading_zones = self.get_loading_zone()
@@ -128,7 +165,6 @@ class AppHandler:
                     for chunk_x in self.map.chunks.get(chunk_coordinates).tiles:
                         for tile in chunk_x:
                             tile[1].remove_from_group()
-
 
     def get_loading_zone(self):
         return [
@@ -183,7 +219,7 @@ class AppHandler:
         # Récupération des informations à afficher
         active_sprites = len(self.in_group)
         total_tiles = len(self.map.chunks) * CHUNK_SIZE * CHUNK_SIZE
-        fps = self.app.clock.get_fps()
+        fps = self.app.get_fps()
         cam_coord = f"x: {self.cam_x} | y: {self.cam_y}"
 
         # Liste des lignes de texte à afficher
@@ -218,6 +254,7 @@ class App:
         self.app_handler = AppHandler(self)
         self.dt = 0.0
         self.keybind = {}
+        self.fps = []
 
     def update_screen(self):
         self.dt = self.clock.tick(MAX_FPS) * 0.001  # Time for each frame
@@ -255,7 +292,12 @@ class App:
             self.keybind['right_click'] = True
 
     def get_fps(self):
-        self.fps = self.clock.get_fps()
+        self.fps.append(self.clock.get_fps())
+        if len(self.fps) == FPS_LIST_SIZE:
+            self.fps.pop(0)
+        if not self.fps:
+            return 0
+        return sum(self.fps) / len(self.fps)
 
     def run_application(self):
         while True:
@@ -265,4 +307,8 @@ class App:
 if __name__ == '__main__':
     game_app = App()
     game_app.run_application()
+
+    start = time.time()
+    print_time(time.time() - start, "default", 0.05)
+
 
