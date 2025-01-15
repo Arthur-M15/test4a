@@ -1,6 +1,9 @@
+from numpy.f2py.auxfuncs import throw_error
+from pygame.transform import scale
+
 from App import BaseSprite
-from Settings import CHUNK_VARIATIONS, CHUNK_SIZE, HARMONIC_NUMBER, TILE_SIZE
-from entities.biomes import *
+from Settings import CHUNK_VARIATIONS, CHUNK_SIZE, HARMONIC_NUMBER, TILE_SIZE, SUPER_CHUNK_SIZE, BIOME_OFFSET_WIDTH
+from common.biomes import *
 import math
 import random
 
@@ -10,10 +13,12 @@ from test_tools import *
 
 
 class Map:
-    def __init__(self, app_handler):
+    def __init__(self, app_handler, seed=0):
         self.app_handler = app_handler
-        self.chunks = {}
+        self.chunks = SuperChunk()
         self.entities = []
+        self.seed = seed
+        self.chunk_offset = {}
 
     def load_chunk(self, chunk_coordinates):
         x, y = chunk_coordinates
@@ -21,27 +26,127 @@ class Map:
 
             # Gathering neighbor chunks information
             if self.chunks.get((x, y - 1)):
-                top_chunk = self.chunks[(x, y - 1)].get_information()
+                top_chunk = self.chunks.get((x, y - 1)).get_information()
             else:
                 top_chunk = None
 
             if self.chunks.get((x, y + 1)):
-                bottom_chunk = self.chunks[(x, y + 1)].get_information()
+                bottom_chunk = self.chunks.get((x, y + 1)).get_information()
             else:
                 bottom_chunk = None
 
             if self.chunks.get((x - 1, y)):
-                left_chunk = self.chunks[(x - 1, y)].get_information()
+                left_chunk = self.chunks.get((x - 1, y)).get_information()
             else:
                 left_chunk = None
 
             if self.chunks.get((x + 1, y)):
-                right_chunk = self.chunks[(x + 1, y)].get_information()
+                right_chunk = self.chunks.get((x + 1, y)).get_information()
             else:
                 right_chunk = None
 
-            self.chunks[(x, y)] = Chunk(self.app_handler, x, y)
-            self.chunks[(x, y)].create(top_chunk, bottom_chunk, left_chunk, right_chunk)
+            self.chunks.set((x, y), Chunk(self.app_handler, x, y))
+            self.chunks.get((x, y)).create(top_chunk, bottom_chunk, left_chunk, right_chunk)
+
+    def get_biome_offset(self, chunk_y):
+        n = chunk_y // BIOME_OFFSET_WIDTH
+        modulo_n = chunk_y % BIOME_OFFSET_WIDTH
+
+        if self.chunk_offset.get(n):
+            return self.chunk_offset.get(n)[modulo_n]
+        else:
+
+
+
+
+
+
+
+
+
+
+        else:
+            if self.chunk_offset.get(n - 1):
+                start = self.chunk_offset.get(n - 1)[-1]
+                start_derivative = self.chunk_offset.get(n - 1)[-1] - self.chunk_offset.get(n - 1)[-2]
+            else:
+                start = 0
+                start_derivative = 0
+
+            if self.chunk_offset.get(n + 1):
+                stop = self.chunk_offset.get(n + 1)[-1]
+                stop_derivative = self.chunk_offset.get(n + 1)[2] - self.chunk_offset.get(n + 1)[1]
+            else:
+                stop = 0
+                stop_derivative = 0
+
+            signal = create_curve(size=BIOME_OFFSET_WIDTH,
+                                  start=start,
+                                  stop=stop,
+                                  start_derivative=start_derivative,
+                                  stop_derivative=stop_derivative)
+            self.chunk_offset[n] = signal
+            return self.chunk_offset.get(n)[modulo_n]
+
+class SuperChunk:
+    def __init__(self):
+        """
+        super_chunks: This list of dictionary: Is used to avoid dictionary expansion process (heavy process)
+        chunk_list_location
+        """
+        self.super_chunks = []
+        self.super_chunk_location = {}
+
+    def __len__(self):
+        total = 0
+        for super_chunk in self.super_chunks:
+            total += len(super_chunk)
+        return total
+
+    def get(self, coordinates):
+        """
+        Function returning the chunk at this coordinate.
+        :param coordinates: tuple(x, y)
+        :return: Chunk
+        """
+        x = coordinates[0]
+        y = coordinates[1]
+        super_x = x // SUPER_CHUNK_SIZE
+        super_y = y // SUPER_CHUNK_SIZE
+
+        position_in_list = self.super_chunk_location.get((super_x, super_y))
+        if position_in_list is not None:
+            chunk = self.super_chunks[position_in_list].get(coordinates)
+            if chunk is not None and chunk.tiles == [] and chunk.is_loaded:
+                chunk.reload()
+            return chunk
+        return None
+
+    def set(self, coordinates, new_chunk, force_update = False):
+        """
+        Function setting the chunk at this coordinate.
+        :param coordinates: tuple(x, y)
+        :param new_chunk: Chunk
+        :param force_update: boolean
+        :raise Exception if the chunk already exists.
+        """
+        x = coordinates[0]
+        y = coordinates[1]
+        super_x = x // SUPER_CHUNK_SIZE
+        super_y = y // SUPER_CHUNK_SIZE
+
+        position_in_list = self.super_chunk_location.get((super_x, super_y))
+        if position_in_list is None:
+            position_in_list = len(self.super_chunks)
+            self.super_chunk_location[(super_x, super_y)] = len(self.super_chunks)
+            self.super_chunks.append({})
+            print(len(self.super_chunk_location))
+
+        if not self.super_chunks[position_in_list].get(coordinates) or force_update:
+            self.super_chunks[position_in_list][coordinates] = new_chunk
+        else:
+            raise Exception("Writing on an already existing chunk")
+
 
 class Chunk:
     def __init__(self, app_handler, x, y, is_loaded=False):
@@ -143,7 +248,8 @@ class Chunk:
         #generator = ChunkGenerator(CHUNK_SIZE, TILE_SIZE, self.x, self.y, self.app_handler, top_signal, bottom_signal, left_signal, right_signal)
         #self.tiles = measure_function(generator.generate_matrix)
         self.tiles = self.__generate_matrix()
-
+        self.is_loaded = True
+        self.app_handler.number_of_loaded_sprites += CHUNK_SIZE * CHUNK_SIZE
 
     def __generate_matrix(self):
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
@@ -168,18 +274,29 @@ class Chunk:
 
         return matrix
 
+    def unload(self):
+        if self.is_loaded:
+            self.tiles = []
+            self.app_handler.number_of_loaded_sprites -= CHUNK_SIZE * CHUNK_SIZE
 
-def create_curve(start=None, stop=None, start_derivative=0, stop_derivative=0, variations=1):
 
-    base_signal = [0] * CHUNK_SIZE
+    def reload(self):
+        if self.is_loaded:
+            self.tiles = self.__generate_matrix()
+            self.app_handler.number_of_loaded_sprites += CHUNK_SIZE * CHUNK_SIZE
+
+
+def create_curve(size = None, start=None, stop=None, start_derivative=0, stop_derivative=0, variations=1):
+    if size is None: size = CHUNK_SIZE
+    base_signal = [0] * size
 
     for i in range(1, HARMONIC_NUMBER+1):
         random_phase = random.uniform(-math.pi, math.pi)
         #random_amplitude = random.uniform(-1, 1)
         random_offset = random.uniform(-0.5, 0.5)
         random_amplitude = 1
-        for j in range(CHUNK_SIZE):
-            base_signal[j] += random_offset + (random_amplitude / i) * math.sin(((2 * math.pi * j)/CHUNK_SIZE) + random_phase)
+        for j in range(size):
+            base_signal[j] += random_offset + (random_amplitude / i) * math.sin(((2 * math.pi * j)/size) + random_phase)
 
     if start:
         offset = start - base_signal[0]
@@ -194,7 +311,7 @@ def create_curve(start=None, stop=None, start_derivative=0, stop_derivative=0, v
         base_signal = base_signal2
     return base_signal
 
-def correct_curve(offset, derivative, starting):
+def correct_curve(offset, derivative, starting, size = None):
     """
     f\left(x\right)=-ae^{-x}
     g\left(x\right)=\frac{\left(\cos\left(\frac{2\pi x}{2c}\right)+1\right)}{2}
@@ -212,15 +329,16 @@ def correct_curve(offset, derivative, starting):
     # c the scale
     # r(x) the result
 
+    if size is None: size = CHUNK_SIZE
     a = derivative
     b = offset + derivative
-    c = CHUNK_SIZE
+    c = size
     if starting:
         first = 0
-        last = CHUNK_SIZE
+        last = size
         increment = 1
     else:
-        first = CHUNK_SIZE - 1
+        first = size - 1
         last = -1
         increment = -1
     signal_correction = []

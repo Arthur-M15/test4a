@@ -1,7 +1,7 @@
 from Settings import HARMONIC_NUMBER
 import math
 import random
-from entities.biomes import *
+from common.biomes import *
 
 
 def generate_tiles(coordinates, app_handler, top_chunk, bottom_chunk, left_chunk, right_chunk, scale, variations):

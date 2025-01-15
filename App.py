@@ -1,5 +1,9 @@
+import time
+
 import pygame.mouse
 import os
+
+import common
 from Settings import *
 from Map import *
 from pyximport import install ; install()
@@ -70,32 +74,16 @@ class AppHandler:
         self.param_hud = pg.Surface([400, 200])
         self.font = ft.SysFont('Verdana', FONT_SIZE)
         self.tick_divider = 0
+        self.number_of_loaded_sprites = 0
 
-    def get_sprite(self, category, name):
-        try:
-            profiler = cProfile.Profile()
-            profiler.enable()
-            time_stamp = time.time()
-            value = self.loaded_sprites[category][name]
-
-            profiler.disable()
-            if print_time(time.time() - time_stamp, "gen_mat", 0.03):
-                stats = pstats.Stats(profiler)
-                stats.sort_stats('time').print_stats(10)
-
-            return value
-        except:
-            print("sprite_tag error")
-        return None
+    def get_sprite(self, category, biome, name):
+        return self.loaded_sprites[category][biome][name]
 
     def load_assets(self):
-        for root, dirs, files in os.walk(BIOME_SPRITE_DIR_PATH):
-            images = {
-                file: Image(Texture.from_surface(self.app.renderer, pg.image.load(os.path.join(root, file))))
-                for file in files if file.endswith(".png")}
-            if images:
-                folder_name = os.path.basename(root)
-                self.loaded_sprites[folder_name] = images
+        self.loaded_sprites = {
+            "biomes": common.biomes.load_tile_image(self.app)
+            #,"entities": common.entities.load_entity_image(self.app)
+        }
 
 
     def move(self):
@@ -139,10 +127,14 @@ class AppHandler:
             self.in_group.spritedict = sorted_in_group
 
     def load_chunks(self):
-        if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or self.map.chunks == {}:
+        if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or self.map.chunks.super_chunk_location == {}:
+            start = time.time()
             self.load_chunks_thread()
-            """if not lock.locked():
-                thread = threading.Thread(target=self.load_chunks_thread)
+            if print_time(time.time()-start):
+                a = 10
+
+            if not lock.locked():
+                """thread = threading.Thread(target=self.load_chunks_thread)
                 thread.start()"""
 
     def load_chunks_thread(self):
@@ -165,6 +157,7 @@ class AppHandler:
                     for chunk_x in self.map.chunks.get(chunk_coordinates).tiles:
                         for tile in chunk_x:
                             tile[1].remove_from_group()
+                    self.map.chunks.get(chunk_coordinates).unload()
 
     def get_loading_zone(self):
         return [
@@ -218,7 +211,7 @@ class AppHandler:
 
         # Récupération des informations à afficher
         active_sprites = len(self.in_group)
-        total_tiles = len(self.map.chunks) * CHUNK_SIZE * CHUNK_SIZE
+        total_tiles = self.number_of_loaded_sprites
         fps = self.app.get_fps()
         cam_coord = f"x: {self.cam_x} | y: {self.cam_y}"
 
@@ -305,10 +298,6 @@ class App:
             self.inputs()
 
 if __name__ == '__main__':
+
     game_app = App()
     game_app.run_application()
-
-    start = time.time()
-    print_time(time.time() - start, "default", 0.05)
-
-
