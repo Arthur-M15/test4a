@@ -2,23 +2,30 @@ from numpy.f2py.auxfuncs import throw_error
 from pygame.transform import scale
 
 from App import BaseSprite
-from Settings import CHUNK_VARIATIONS, CHUNK_SIZE, HARMONIC_NUMBER, TILE_SIZE, SUPER_CHUNK_SIZE, BIOME_OFFSET_WIDTH
-from common.biomes import *
+from Settings import *
+from common.biomes.Biome import *
 import math
 import random
 
-
-
+from common.biomes.Biome import *
 from test_tools import *
 
 
 class Map:
-    def __init__(self, app_handler, seed=0):
+    def __init__(self, app_handler, seed=0, height=100):
         self.app_handler = app_handler
         self.chunks = SuperChunk()
         self.entities = []
         self.seed = seed
-        self.chunk_offset = {}
+
+        #normalized offset is on height=100
+        self.total_height = height
+        self.biome_manager = BiomeManager(self, SEED, MIN_Y, MAX_Y)
+
+
+    def get_height(self, y):
+        return (y * 100) / self.total_height
+
 
     def load_chunk(self, chunk_coordinates):
         x, y = chunk_coordinates
@@ -45,48 +52,12 @@ class Map:
             else:
                 right_chunk = None
 
-            self.chunks.set((x, y), Chunk(self.app_handler, x, y))
+            self.chunks.set((x, y), Chunk(self.app_handler, x, y, self.get_biome_offset(x)))
             self.chunks.get((x, y)).create(top_chunk, bottom_chunk, left_chunk, right_chunk)
 
     def get_biome_offset(self, chunk_y):
-        n = chunk_y // BIOME_OFFSET_WIDTH
-        modulo_n = chunk_y % BIOME_OFFSET_WIDTH
+        return self.biome_offset.get_offset(chunk_y)
 
-        if self.chunk_offset.get(n):
-            return self.chunk_offset.get(n)[modulo_n]
-        else:
-
-
-
-
-
-
-
-
-
-
-        else:
-            if self.chunk_offset.get(n - 1):
-                start = self.chunk_offset.get(n - 1)[-1]
-                start_derivative = self.chunk_offset.get(n - 1)[-1] - self.chunk_offset.get(n - 1)[-2]
-            else:
-                start = 0
-                start_derivative = 0
-
-            if self.chunk_offset.get(n + 1):
-                stop = self.chunk_offset.get(n + 1)[-1]
-                stop_derivative = self.chunk_offset.get(n + 1)[2] - self.chunk_offset.get(n + 1)[1]
-            else:
-                stop = 0
-                stop_derivative = 0
-
-            signal = create_curve(size=BIOME_OFFSET_WIDTH,
-                                  start=start,
-                                  stop=stop,
-                                  start_derivative=start_derivative,
-                                  stop_derivative=stop_derivative)
-            self.chunk_offset[n] = signal
-            return self.chunk_offset.get(n)[modulo_n]
 
 class SuperChunk:
     def __init__(self):
@@ -102,6 +73,7 @@ class SuperChunk:
         for super_chunk in self.super_chunks:
             total += len(super_chunk)
         return total
+
 
     def get(self, coordinates):
         """
@@ -122,9 +94,10 @@ class SuperChunk:
             return chunk
         return None
 
+
     def set(self, coordinates, new_chunk, force_update = False):
         """
-        Function setting the chunk at this coordinate.
+        Function setting the chunk at this (chunk) coordinates.
         :param coordinates: tuple(x, y)
         :param new_chunk: Chunk
         :param force_update: boolean
@@ -140,7 +113,7 @@ class SuperChunk:
             position_in_list = len(self.super_chunks)
             self.super_chunk_location[(super_x, super_y)] = len(self.super_chunks)
             self.super_chunks.append({})
-            print(len(self.super_chunk_location))
+            #print(len(self.super_chunk_location))
 
         if not self.super_chunks[position_in_list].get(coordinates) or force_update:
             self.super_chunks[position_in_list][coordinates] = new_chunk
@@ -149,7 +122,7 @@ class SuperChunk:
 
 
 class Chunk:
-    def __init__(self, app_handler, x, y, is_loaded=False):
+    def __init__(self, app_handler, x, y, biome_height, is_loaded=False):
         self.x = x
         self.y = y
         self.biome_name = "classic"
@@ -161,6 +134,8 @@ class Chunk:
         self.left_signal = None
         self.right_signal = None
         self.is_loaded = is_loaded
+        self.biome_height = biome_height
+
 
     def get_information(self):
         """
@@ -169,6 +144,7 @@ class Chunk:
         """
         info = {key: value for key, value in self.__dict__.items() if key != "tiles"}
         return info
+
 
     def create(self, top_chunk, bottom_chunk, left_chunk, right_chunk, biome_index=1):
 
@@ -251,6 +227,7 @@ class Chunk:
         self.is_loaded = True
         self.app_handler.number_of_loaded_sprites += CHUNK_SIZE * CHUNK_SIZE
 
+
     def __generate_matrix(self):
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
@@ -271,8 +248,8 @@ class Chunk:
                 x, y = absolute_chunk_x + i * TILE_SIZE, absolute_chunk_y + j * TILE_SIZE
                 tile = Tile(self.app_handler,x, y, matrix[i][j][0])
                 matrix[i][j][1] = measure_function(f"chunks: {chunk_number} aaa", BaseSprite, self.app_handler, tile)
-
         return matrix
+
 
     def unload(self):
         if self.is_loaded:
@@ -286,7 +263,11 @@ class Chunk:
             self.app_handler.number_of_loaded_sprites += CHUNK_SIZE * CHUNK_SIZE
 
 
-def create_curve(size = None, start=None, stop=None, start_derivative=0, stop_derivative=0, variations=1):
+
+
+
+
+def create_curve(start=None, stop=None, start_derivative=0, stop_derivative=0, variations=1, size = None):
     if size is None: size = CHUNK_SIZE
     base_signal = [0] * size
 
@@ -312,7 +293,7 @@ def create_curve(size = None, start=None, stop=None, start_derivative=0, stop_de
     return base_signal
 
 def correct_curve(offset, derivative, starting, size = None):
-    """
+    r"""
     f\left(x\right)=-ae^{-x}
     g\left(x\right)=\frac{\left(\cos\left(\frac{2\pi x}{2c}\right)+1\right)}{2}
     h\left(x\right)=be^{-\left(\frac{5x}{c}\right)^{2}}

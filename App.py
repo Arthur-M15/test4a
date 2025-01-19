@@ -1,12 +1,8 @@
-import time
-
 import pygame.mouse
-import os
-
 import common
+import test
 from Settings import *
 from Map import *
-from pyximport import install ; install()
 import threading
 lock = threading.Lock()
 from test_tools import *
@@ -134,6 +130,7 @@ class AppHandler:
                 a = 10
 
             if not lock.locked():
+                pass
                 """thread = threading.Thread(target=self.load_chunks_thread)
                 thread.start()"""
 
@@ -298,6 +295,11 @@ class App:
             self.inputs()
 
 if __name__ == '__main__':
-
-    game_app = App()
-    game_app.run_application()
+    if True:
+        test = BiomeOffsetList()
+        a = test.get_offset(0)
+        print(a)
+        #biome_generator_helper.assets_generator(((100, 100, 100), (200, 200, 200), (0, 0, 0)), ((0, 100, 100), (0, 200, 200), (10, 0, 0)))
+    else:
+        game_app = App()
+        game_app.run_application()

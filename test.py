@@ -1,8 +1,12 @@
-import numpy as np
+from PIL import Image, ImageFilter
+import math
+
+
+"""import numpy as np
 import matplotlib.pyplot as plt
 
 def generate_colored_signal(power, B, N, dt=1.0, seed=None):
-    """
+
     Generate a colored signal with uniform Fourier spectrum, centered, and specified power.
 
     Parameters:
@@ -15,7 +19,7 @@ def generate_colored_signal(power, B, N, dt=1.0, seed=None):
     Returns:
     - t: time array.
     - x: time-domain signal with specified properties.
-    """
+
     if seed is not None:
         np.random.seed(seed)
 
@@ -80,3 +84,4 @@ plt.title('Power Spectral Density of the Signal')
 plt.legend()
 plt.grid()
 plt.show()
+"""
