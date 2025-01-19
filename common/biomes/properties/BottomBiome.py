@@ -1,7 +1,13 @@
+from ..Biome import Biome
+from .biome_generator_helper import *
 
-class ClassicBiome:
-    def __init__(self):
-        self.color1 = (100, 100, 255)
-        self.color2 = (200, 200, 255)
-        self.color3 = (250, 250, 255)
-        self.tallness = 20
+
+class BottomBiome(Biome):
+    def __init__(self, i, manager, name):
+        end_color = ((0, 0, 0), (0, 0, 0), (0, 0, 0))
+        self.main_color = ((100, 100, 100), (200, 200, 200), (250, 250, 250))
+
+        super().__init__(name)
+
+        self.assets = assets_generator(self.main_color, end_color, self.variants_number)
+        manager.biome_directory[i] = self

@@ -296,9 +296,11 @@ class App:
 
 if __name__ == '__main__':
     if True:
+        common.biomes.properties.biome_generator_helper.simple_dominance_matrix(10, "corner")
+        """test2 = test.main()
         test = BiomeOffsetList()
         a = test.get_offset(0)
-        print(a)
+        print(a)"""
         #biome_generator_helper.assets_generator(((100, 100, 100), (200, 200, 200), (0, 0, 0)), ((0, 100, 100), (0, 200, 200), (10, 0, 0)))
     else:
         game_app = App()

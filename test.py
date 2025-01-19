@@ -2,6 +2,23 @@ from PIL import Image, ImageFilter
 import math
 
 
+
+class A:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+class B(A):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+
+
+if __name__ == '__main__':
+    a = B(10, 20)
+    print(a.x, a.y)
+
+
+
 """import numpy as np
 import matplotlib.pyplot as plt
 

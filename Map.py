@@ -1,13 +1,7 @@
-from numpy.f2py.auxfuncs import throw_error
-from pygame.transform import scale
-
 from App import BaseSprite
-from Settings import *
-from common.biomes.Biome import *
 import math
-import random
 
-from common.biomes.Biome import *
+from common.biomes.BiomeManager import *
 from test_tools import *
 
 
@@ -52,11 +46,11 @@ class Map:
             else:
                 right_chunk = None
 
-            self.chunks.set((x, y), Chunk(self.app_handler, x, y, self.get_biome_offset(x)))
+            self.chunks.set((x, y), Chunk(self.app_handler, x, y, self.get_biome(x, y)))
             self.chunks.get((x, y)).create(top_chunk, bottom_chunk, left_chunk, right_chunk)
 
-    def get_biome_offset(self, chunk_y):
-        return self.biome_offset.get_offset(chunk_y)
+    def get_biome(self, chunk_x, chunk_y):
+        return self.biome_manager.get_biome(chunk_x, chunk_y)
 
 
 class SuperChunk:
@@ -122,10 +116,9 @@ class SuperChunk:
 
 
 class Chunk:
-    def __init__(self, app_handler, x, y, biome_height, is_loaded=False):
+    def __init__(self, app_handler, x, y, biome, is_loaded=False):
         self.x = x
         self.y = y
-        self.biome_name = "classic"
         self.variation = CHUNK_VARIATIONS
         self.app_handler = app_handler
         self.tiles = []
@@ -134,7 +127,18 @@ class Chunk:
         self.left_signal = None
         self.right_signal = None
         self.is_loaded = is_loaded
-        self.biome_height = biome_height
+        self.biome = biome
+        self.frontier_biome = self.get_frontier_biome()
+
+
+    def get_frontier_biome(self):
+        left = self.app_handler.map.biome_manager.get_biome(self.x - 1, self.y).name != self.biome.name
+        bottom_left = self.app_handler.map.biome_manager.get_biome(self.x - 1, self.y - 1).name != self.biome.name
+        bottom = self.app_handler.map.biome_manager.get_biome(self.x, self.y - 1).name != self.biome.name
+        bottom_right = self.app_handler.map.biome_manager.get_biome(self.x + 1, self.y - 1).name != self.biome.name
+        right = self.app_handler.map.biome_manager.get_biome(self.x + 1, self.y).name != self.biome.name
+
+        return left, bottom_left, bottom, bottom_right, right
 
 
     def get_information(self):

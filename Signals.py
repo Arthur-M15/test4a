@@ -1,6 +1,7 @@
 from Settings import HARMONIC_NUMBER
 import math
 import random
+from common.biomes.BiomeManager import Tile
 from common.biomes import *
 
 
@@ -132,7 +133,7 @@ def __create_curve(scale, variation, start=None, stop=None, start_derivative=0, 
 
     return base_signal
 
-def __chunk_generation(coordinates, app_handler, top_signal, bottom_signal, left_signal, right_signal, scale):
+def __chunk_generation(app_handler, top_signal, bottom_signal, left_signal, right_signal, scale):
 
     x_matrix = [[0] * scale for _ in range(scale)]
     y_matrix = [[0] * scale for _ in range(scale)]

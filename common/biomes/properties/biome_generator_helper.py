@@ -1,9 +1,11 @@
 from PIL import Image
-
+import numpy as np
 
 def assets_generator(main_color, next_color, color_variants_number=5, special_variants_list=None):
     if color_variants_number < 3:
         raise Exception('color_variants_number must be greater than 3')
+    if next_color is None:
+        next_color = main_color
     rgb_matrix = {}
     main_color_result = [main_color[0]]
     next_color_result = [next_color[0]]
@@ -123,3 +125,104 @@ def add_pixel_list(image, pixel_values):
                 pixels[coordinates] = rgb
             # else coordinates are out of bounds
         return image
+
+
+def get_dominance_matrix_name(left, corner_left, bottom, corner_right, right):
+    if bottom and right and left:
+        return "right_and_left_and_bottom"
+    elif bottom and not right and left:
+        return "left_and_bottom"
+    elif bottom and not left and right:
+        return "right_and_bottom"
+    elif bottom and not left and not right:
+        return "bottom"
+    elif right and not left and not right:
+        return "right"
+    elif left and not right and not bottom:
+        return "left"
+    elif right and left and not bottom:
+        return "left_and_right"
+    elif corner_right and not corner_left and not right and not bottom and not left:
+        return "corner_right"
+    elif corner_left and not corner_right and not left and not bottom and not right:
+        return "corner_left"
+    elif corner_right and corner_left and not bottom and not left and not right:
+        return "corner_right_and_corner_left"
+    elif corner_right and left and not right and not bottom:
+        return "corner_right_and_left"
+    elif corner_left and right and not left and not bottom:
+        return "corner_left_and_right"
+
+
+def generate_dominance_matrix_dict(chunk_size, variation_number):
+    dominance_matrix = {}
+    linear_border = simple_dominance_matrix(chunk_size, "linear")
+    corner_border = simple_dominance_matrix(chunk_size, "corner")
+
+    dominance_matrix["bottom"] = linear_border
+    dominance_matrix["left"] = rotate_matrix(linear_border, 1)
+    dominance_matrix["right"] = rotate_matrix(linear_border, -1)
+    dominance_matrix["corner_left"] = corner_border
+    dominance_matrix["corner_right"] = rotate_matrix(corner_border, -1)
+
+    dominance_matrix["right_and_bottom"] = merge_matrix(dominance_matrix["right"], dominance_matrix["bottom"], chunk_size)
+    dominance_matrix["left_and_bottom"] = merge_matrix(dominance_matrix["left"], dominance_matrix["bottom"], chunk_size)
+    dominance_matrix["right_and_left_and_bottom"] = merge_matrix(dominance_matrix["left_and_bottom"], dominance_matrix["right"], chunk_size)
+    dominance_matrix["left_and_right"] = merge_matrix(dominance_matrix["left"], dominance_matrix["right"], chunk_size)
+
+    dominance_matrix["corner_left_and_right"] = merge_matrix(dominance_matrix["corner_left"], dominance_matrix["right"], chunk_size)
+    dominance_matrix["corner_right_and_left"] = merge_matrix(dominance_matrix["corner_right"], dominance_matrix["left"], chunk_size)
+    dominance_matrix["corner_right_and_corner_left"] = merge_matrix(dominance_matrix["corner_left"], dominance_matrix["corner_right"], chunk_size)
+
+    for key in dominance_matrix:
+        dominance_matrix[key] = normalize_to_index(dominance_matrix[key], variation_number)
+    return dominance_matrix
+
+
+def normalize_to_index(matrix, variation_number):
+    index_matrix = []
+    for x in matrix:
+        index_line = []
+        for y in x:
+            if int(variation_number * y) >= variation_number:
+                y = variation_number - 1
+            index_line.append(int(variation_number * y))
+        index_matrix.append(index_line)
+    return index_matrix
+
+
+def simple_dominance_matrix(chunk_size, shape):
+    matrix = [[0] * chunk_size for _ in range(chunk_size)]
+    fade = [(fade_index/chunk_size) for fade_index in range(chunk_size)]
+    matrix[0] = fade
+
+    if shape == "corner":
+        for i in range(1, chunk_size):
+            matrix[i] = [(x * (chunk_size-i-1))/chunk_size for x in fade]
+
+    elif shape == "linear":
+        for i in range(1, chunk_size):
+            matrix[i] = fade
+
+    else:
+        raise Exception("Invalid shape")
+    for line in matrix:
+        print(line)
+    return matrix
+
+
+def rotate_matrix(matrix, rotation_90):
+    new_matrix = np.rot90(matrix, rotation_90)
+    return new_matrix.tolist()
+
+
+def mix_values(val1, val2):
+    return val1 + (1-val1)*val2
+
+
+def merge_matrix(matrix1, matrix2, size):
+    new_matrix = [[0] * size for _ in range(size)]
+    for i in range(size):
+        for j in range(size):
+            new_matrix[i][j] = mix_values(matrix1[i][j], matrix2[i][j])
+    return new_matrix
