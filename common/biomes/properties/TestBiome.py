@@ -5,7 +5,7 @@ from ..properties import *
 
 class TestBiome(Biome):
     def __init__(self, i, biome_order, manager, name):
-        self.main_color = ((100, 100, 100), (200, 200, 200), (250, 250, 250))
+        self.main_color = ((255, 230, 120), (255, 200, 80), (215, 200, 130))
 
         super().__init__(name)
         next_biome_name = biome_order[i+1]
@@ -16,4 +16,5 @@ class TestBiome(Biome):
             self.next_biome = pre_instance(i + 1, biome_order, manager, next_biome_name)
         manager.biome_directory[i] = self
 
-        self.assets = assets_generator(self.main_color, self.next_biome.main_color, self.variants_number)
+        renderer = manager.map.app_handler.app.renderer
+        self.assets = assets_generator(self.main_color, self.next_biome.main_color, renderer, self.variants_number)

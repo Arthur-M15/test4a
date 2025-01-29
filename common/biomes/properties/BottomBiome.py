@@ -3,11 +3,11 @@ from .biome_generator_helper import *
 
 
 class BottomBiome(Biome):
-    def __init__(self, i, manager, name):
-        end_color = ((0, 0, 0), (0, 0, 0), (0, 0, 0))
-        self.main_color = ((100, 100, 100), (200, 200, 200), (250, 250, 250))
+    def __init__(self, i, biome_order, manager, name):
+        self.main_color = end_color = ((100, 100, 120), (80, 80, 70), (30, 10, 10))
+        self.next_biome = self
 
         super().__init__(name)
-
-        self.assets = assets_generator(self.main_color, end_color, self.variants_number)
+        renderer = manager.map.app_handler.app.renderer
+        self.assets = assets_generator(self.main_color, end_color, renderer, self.variants_number)
         manager.biome_directory[i] = self

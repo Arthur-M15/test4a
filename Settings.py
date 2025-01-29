@@ -3,7 +3,7 @@ import pathlib
 import pygame as pg
 import pygame.freetype as ft
 import sys
-from pygame._sdl2.video import Window, Renderer, Texture, Image
+from pygame._sdl2.video import Window, Renderer, Texture, Image as Pyimage
 from random import randrange, uniform
 
 #WIN_SIZE = WIN_W, WIN_H = 1600, 900
@@ -24,18 +24,20 @@ DEBUG = True
 """
 
 SPEED = 20
-CHUNK_SIZE = 10
+CHUNK_SIZE = 12
 CHUNK_LOAD_DISTANCE = 10
-TILE_SIZE = 46
+TILE_SIZE = 56
 CHUNK_VARIATIONS = 0.05
 HARMONIC_NUMBER = 5
 TOTAL_WIDTH = CHUNK_SIZE * TILE_SIZE * CHUNK_LOAD_DISTANCE
 CHUNK_WIDTH = CHUNK_SIZE * TILE_SIZE
 
 SUPER_CHUNK_SIZE = 5
-BIOME_OFFSET_WIDTH = 10
-BIOME_OFFSET_VARIATION = 3
+BIOME_OFFSET_VARIATION = 10
+BIOME_OFFSET_WIDTH = 50
+TILE_HEIGHT_SATURATION = 5
 
 SEED = 0
-MIN_Y, MAX_Y = -10, 10
-VARIANTS_NUMBER = 5
+TOP_BIOME_Y = -10
+BIOME_OFFSET_HEIGHT = 5
+VARIANTS_NUMBER = 12

@@ -21,6 +21,7 @@ class BaseSprite:
         #todo : add sprite_name conditions
         self.entity = entity
         self.image = self.entity.image
+        self.original_image = self.entity.image
         self.image_size = entity.max_size
         self.rect = self.entity.image.get_rect()
         self.orig_rect = self.rect.copy()
@@ -34,16 +35,14 @@ class BaseSprite:
     def update(self):
         self.x, self.y = self.entity.x - self.app_handler.cam_x + self.offset_x, self.entity.y - self.app_handler.cam_y + self.offset_y
         self.rect.center = self.x, self.y
+        self.action()
+
+    def action(self):
+        pass
 
 
-    def check_visibility(self):
-        visible = True
-        self.update()
-        if self.x < 0 - self.image_size or self.x >= WIN_W + self.image_size:
-            visible = False
-        elif self.y < 0 - self.image_size or self.y >= WIN_H + self.image_size:
-            visible = False
-        return visible
+    def zoom_down(self):
+        pass
 
     def add_to_group(self):
         if not self.in_sprite_list:
@@ -55,15 +54,14 @@ class BaseSprite:
             self.app_handler.in_group.remove_internal(self)
             self.in_sprite_list = False
 
+
 class AppHandler:
     def __init__(self, app):
         self.app = app
         self.cam_x = 0
         self.cam_y = 0
         self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
-        self.loaded_sprites = {}
         self.visible_chunks = []
-        self.load_assets()
         self.map = Map(self)
         self.in_group = pg.sprite.Group()
         self.pause_group = {}
@@ -71,15 +69,6 @@ class AppHandler:
         self.font = ft.SysFont('Verdana', FONT_SIZE)
         self.tick_divider = 0
         self.number_of_loaded_sprites = 0
-
-    def get_sprite(self, category, biome, name):
-        return self.loaded_sprites[category][biome][name]
-
-    def load_assets(self):
-        self.loaded_sprites = {
-            "biomes": common.biomes.load_tile_image(self.app)
-            #,"entities": common.entities.load_entity_image(self.app)
-        }
 
 
     def move(self):
@@ -96,6 +85,20 @@ class AppHandler:
     def interact(self):
         if 'left_click' in game_app.keybind:
             self.add_entity()
+        if 'mouse_up' in game_app.keybind:
+            self.app.scale += 0.1
+            self.app.renderer.scale = (self.app.scale, self.app.scale)
+            rect_value = self.app.renderer.get_viewport()
+            rect_value[0], rect_value[1] = rect_value[0] - 20, rect_value[1] - 20
+            self.app.renderer.set_viewport(rect_value)
+
+
+        if 'mouse_down' in game_app.keybind:
+            self.app.scale -= 0.1
+            self.app.renderer.scale = (self.app.scale, self.app.scale)
+            rect_value = self.app.renderer.get_viewport()
+            rect_value[0], rect_value[1] = rect_value[0] + 20, rect_value[1] + 20
+            self.app.renderer.set_viewport(rect_value)
 
     def timing_function(self, frequency, function, *args, **kwargs):
         if self.tick_divider % frequency == 0:
@@ -110,11 +113,13 @@ class AppHandler:
         self.move()
         self.interact()
         self.in_group.update()
+        self.sort_sprite_group()
+        self.timing_function(120, self.print_biome)
 
-        if self.in_group.spritedict:
-            sorted_in_group_x = {sprite: value for sprite, value in sorted(self.in_group.spritedict.items(), key=lambda item: item[0].x)}
-            sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(), key=lambda item: item[0].y)}
-            self.in_group.spritedict = sorted_in_group
+    def print_biome(self):
+        x, y = self.get_chunk_position()
+        biome = self.map.get_biome(x, y)
+        print(biome.name)
 
     def sort_sprite_group(self):
         if self.in_group.spritedict:
@@ -181,8 +186,7 @@ class AppHandler:
     #todo : move this
     def add_entity(self):
         (x, y) = pygame.mouse.get_pos()
-        new_entity = BaseSprite(self, Tile(self, x + self.cam_x, y + self.cam_y, -1), x, y)
-        self.map.entities.append(new_entity)
+        pass
 
 
     def get_chunk_position(self, position=None):
@@ -245,6 +249,7 @@ class App:
         self.dt = 0.0
         self.keybind = {}
         self.fps = []
+        self.scale = 1
 
     def update_screen(self):
         self.dt = self.clock.tick(MAX_FPS) * 0.001  # Time for each frame
@@ -256,10 +261,16 @@ class App:
 
     def inputs(self):
         self.keybind.clear()
-        for e in pg.event.get():
-            if e.type == pg.QUIT or (e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE):
+        for event in pg.event.get():
+            if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
                 pg.quit()
                 sys.exit()
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:
+                    self.keybind['mouse_up'] = True
+                elif event.button == 5:
+                    self.keybind['mouse_down'] = True
 
         keys = pg.key.get_pressed()
         if keys[pg.K_UP]:
@@ -294,8 +305,22 @@ class App:
             self.update_screen()
             self.inputs()
 
+    def convert_image(self, image):
+        mode = image.mode
+        size = image.size
+        data = image.tobytes()
+        if mode == "RGBA":
+            a = pg.image.fromstring(data, size, "RGBA")
+        elif mode == "RGB":
+            a = pg.image.fromstring(data, size, "RGB")
+        else:
+            raise ValueError(f"Unsupported image: {mode}")
+
+        image = Image(Texture.from_surface(self.renderer, a))
+        return image
+
 if __name__ == '__main__':
-    if True:
+    if False:
         common.biomes.properties.biome_generator_helper.simple_dominance_matrix(10, "corner")
         """test2 = test.main()
         test = BiomeOffsetList()

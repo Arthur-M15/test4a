@@ -1,7 +1,17 @@
 from PIL import Image
 import numpy as np
+from pygame._sdl2.video import Texture, Image as Pyimage
+import pygame as pg
 
-def assets_generator(main_color, next_color, color_variants_number=5, special_variants_list=None):
+def assets_generator(main_color, next_color, renderer, color_variants_number=5):
+    """
+    Create a double list of images.
+    return asset[i][j] with i and j respectively variation index and height index.
+    :param main_color: color of the current biome
+    :param next_color: color of the next biome
+    :param color_variants_number: amount of colors variations
+    :return:
+    """
     if color_variants_number < 3:
         raise Exception('color_variants_number must be greater than 3')
     if next_color is None:
@@ -37,8 +47,16 @@ def assets_generator(main_color, next_color, color_variants_number=5, special_va
             rgb_matrix[i] = mix_color_list
 
     assets = []
-    for rgb_list in rgb_matrix.values():
-        assets.append(tile_generator(rgb) for rgb in rgb_list)
+    for i, rgb_list in enumerate(rgb_matrix.values()):
+        assets.append([tile_generator(rgb, renderer)[1] for rgb in rgb_list])
+        for j, rgb in enumerate(rgb_list):
+            a = tile_generator(rgb, renderer)[0]
+            tile_generator(rgb, renderer)[0].save(f"C:/Users/Arthur/PycharmProjects/test4a/test/{str(hash(main_color))}-{i}{j}.png")
+
+    """if main_color == ((0, 0, 100), (0, 0, 200), (0, 0, 250)):
+        for i in range(len(assets)):
+            for j in range(len(assets[i])):
+                assets[i][j].save(f"C:/Users/Arthur/PycharmProjects/test4a/test/{str(hash(main_color))}-{i}{j}.png")"""
     return assets
 
 
@@ -55,7 +73,7 @@ def sum_colors(color1, color2, second_dominance):
     return new_color
 
 
-def tile_generator(rgb, scale_factor=20, additional_pixel=None):
+def tile_generator(rgb, renderer, scale_factor=20, additional_pixel=None):
     size = (4, 5)
     image = Image.new("RGBA", size, rgb)
     alpha_color = (0, 0, 0, 0)
@@ -69,10 +87,30 @@ def tile_generator(rgb, scale_factor=20, additional_pixel=None):
     image = image.convert("RGBA")
     enlarged_size = (size[0] * scale_factor, size[1] * scale_factor)
     image = image.resize(enlarged_size, Image.NEAREST)
-    image = image.rotate(45, expand=True, resample=Image.BICUBIC)
+    image = image.rotate(45, expand=True, resample=Image.NEAREST)
     image = auto_crop_left(image)
     image = auto_crop_right(image)
-    return image
+    #image.save("C:/Users/Arthur/PycharmProjects/test4a/name.png")
+
+    return image, pil_to_pygame(image, renderer)
+
+def pil_to_pygame(new_image, renderer):
+
+    """
+    Convertit une image Pillow (PIL.Image) en Surface Pygame compatible.
+    """
+    mode = new_image.mode
+    size = new_image.size
+    data = new_image.tobytes()
+
+    # Vérification du mode pour s'assurer qu'il est compatible avec Pygame
+    if mode == "RGBA":
+        new_image = pg.image.fromstring(data, size, "RGBA")
+    elif mode == "RGB":
+        new_image = pg.image.fromstring(data, size, "RGB")
+    else:
+        raise ValueError(f"Mode d'image non supporté : {mode}")
+    return Pyimage(Texture.from_surface(renderer, new_image))
 
 
 def auto_crop_left(image):
@@ -83,7 +121,7 @@ def auto_crop_left(image):
                 image = image.crop((x ,x, image.width, image.height))
                 return image
 
-def auto_crop_right(image):
+def auto_crop_right(image, margin=0):
     pixels = image.load()
     is_valid = False
     for x in range(image.width):
@@ -102,7 +140,7 @@ def auto_crop_right(image):
 
         pattern_values = [pattern[i][0] for i in range(len(pattern))]
         if pattern_values == [0, 1, 0] and is_valid:
-            image = image.crop((0 ,0, pattern[-1][1], pattern[-1][1]))
+            image = image.crop((0 ,0, pattern[-1][1]+margin, pattern[-1][1]+margin))
             return image
         elif pattern_values == [0, 1, 0, 1, 0]:
             is_valid = True
@@ -127,31 +165,34 @@ def add_pixel_list(image, pixel_values):
         return image
 
 
-def get_dominance_matrix_name(left, corner_left, bottom, corner_right, right):
-    if bottom and right and left:
-        return "right_and_left_and_bottom"
-    elif bottom and not right and left:
-        return "left_and_bottom"
-    elif bottom and not left and right:
-        return "right_and_bottom"
-    elif bottom and not left and not right:
-        return "bottom"
+def get_dominance_matrix_name(frontier):
+    left, corner_left, top, corner_right, right = frontier
+    if top and right and left:
+        return "right_and_left_and_top"
+    elif top and not right and left:
+        return "left_and_top"
+    elif top and not left and right:
+        return "right_and_top"
+    elif top and not left and not right:
+        return "top"
     elif right and not left and not right:
         return "right"
-    elif left and not right and not bottom:
+    elif left and not right and not top:
         return "left"
-    elif right and left and not bottom:
+    elif right and left and not top:
         return "left_and_right"
-    elif corner_right and not corner_left and not right and not bottom and not left:
+    elif corner_right and not corner_left and not right and not top and not left:
         return "corner_right"
-    elif corner_left and not corner_right and not left and not bottom and not right:
+    elif corner_left and not corner_right and not left and not top and not right:
         return "corner_left"
-    elif corner_right and corner_left and not bottom and not left and not right:
+    elif corner_right and corner_left and not top and not left and not right:
         return "corner_right_and_corner_left"
-    elif corner_right and left and not right and not bottom:
+    elif corner_right and left and not right and not top:
         return "corner_right_and_left"
-    elif corner_left and right and not left and not bottom:
+    elif corner_left and right and not left and not top:
         return "corner_left_and_right"
+    else:
+        return "full"
 
 
 def generate_dominance_matrix_dict(chunk_size, variation_number):
@@ -159,20 +200,21 @@ def generate_dominance_matrix_dict(chunk_size, variation_number):
     linear_border = simple_dominance_matrix(chunk_size, "linear")
     corner_border = simple_dominance_matrix(chunk_size, "corner")
 
-    dominance_matrix["bottom"] = linear_border
+    dominance_matrix["top"] = linear_border
     dominance_matrix["left"] = rotate_matrix(linear_border, 1)
     dominance_matrix["right"] = rotate_matrix(linear_border, -1)
     dominance_matrix["corner_left"] = corner_border
     dominance_matrix["corner_right"] = rotate_matrix(corner_border, -1)
 
-    dominance_matrix["right_and_bottom"] = merge_matrix(dominance_matrix["right"], dominance_matrix["bottom"], chunk_size)
-    dominance_matrix["left_and_bottom"] = merge_matrix(dominance_matrix["left"], dominance_matrix["bottom"], chunk_size)
-    dominance_matrix["right_and_left_and_bottom"] = merge_matrix(dominance_matrix["left_and_bottom"], dominance_matrix["right"], chunk_size)
+    dominance_matrix["right_and_top"] = merge_matrix(dominance_matrix["right"], dominance_matrix["top"], chunk_size)
+    dominance_matrix["left_and_top"] = merge_matrix(dominance_matrix["left"], dominance_matrix["top"], chunk_size)
+    dominance_matrix["right_and_left_and_top"] = merge_matrix(dominance_matrix["left_and_top"], dominance_matrix["right"], chunk_size)
     dominance_matrix["left_and_right"] = merge_matrix(dominance_matrix["left"], dominance_matrix["right"], chunk_size)
 
     dominance_matrix["corner_left_and_right"] = merge_matrix(dominance_matrix["corner_left"], dominance_matrix["right"], chunk_size)
     dominance_matrix["corner_right_and_left"] = merge_matrix(dominance_matrix["corner_right"], dominance_matrix["left"], chunk_size)
     dominance_matrix["corner_right_and_corner_left"] = merge_matrix(dominance_matrix["corner_left"], dominance_matrix["corner_right"], chunk_size)
+    dominance_matrix["full"] = [[0] * chunk_size] * chunk_size
 
     for key in dominance_matrix:
         dominance_matrix[key] = normalize_to_index(dominance_matrix[key], variation_number)
@@ -226,3 +268,15 @@ def merge_matrix(matrix1, matrix2, size):
         for j in range(size):
             new_matrix[i][j] = mix_values(matrix1[i][j], matrix2[i][j])
     return new_matrix
+
+def get_height_index(height, variation_number, max_height=3):
+    medium = max_height / 2
+    normalized_height = height + medium
+    unit_size = max_height/variation_number
+    index = int(normalized_height/unit_size)
+    if index <= 0 :
+        return 0
+    elif index >= variation_number:
+        return variation_number - 1
+    else:
+        return index

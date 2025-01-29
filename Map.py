@@ -14,7 +14,7 @@ class Map:
 
         #normalized offset is on height=100
         self.total_height = height
-        self.biome_manager = BiomeManager(self, SEED, MIN_Y, MAX_Y)
+        self.biome_manager = BiomeManager(self, SEED)
 
 
     def get_height(self, y):
@@ -132,13 +132,13 @@ class Chunk:
 
 
     def get_frontier_biome(self):
-        left = self.app_handler.map.biome_manager.get_biome(self.x - 1, self.y).name != self.biome.name
-        bottom_left = self.app_handler.map.biome_manager.get_biome(self.x - 1, self.y - 1).name != self.biome.name
-        bottom = self.app_handler.map.biome_manager.get_biome(self.x, self.y - 1).name != self.biome.name
-        bottom_right = self.app_handler.map.biome_manager.get_biome(self.x + 1, self.y - 1).name != self.biome.name
-        right = self.app_handler.map.biome_manager.get_biome(self.x + 1, self.y).name != self.biome.name
+        left = self.app_handler.map.get_biome(self.x - 1, self.y).name == self.biome.next_biome.name
+        top_left = self.app_handler.map.get_biome(self.x - 1, self.y + 1).name == self.biome.next_biome.name
+        top = self.app_handler.map.get_biome(self.x, self.y + 1).name == self.biome.next_biome.name
+        top_right = self.app_handler.map.get_biome(self.x + 1, self.y + 1).name == self.biome.next_biome.name
+        right = self.app_handler.map.get_biome(self.x + 1, self.y).name == self.biome.next_biome.name
 
-        return left, bottom_left, bottom, bottom_right, right
+        return left, top_left, top, top_right, right
 
 
     def get_information(self):
@@ -151,7 +151,6 @@ class Chunk:
 
 
     def create(self, top_chunk, bottom_chunk, left_chunk, right_chunk, biome_index=1):
-
         top_signal = []
         bottom_signal = []
         left_signal = []
@@ -246,11 +245,19 @@ class Chunk:
                 x_matrix[i][j] = (self.top_signal[i] - ((j / CHUNK_SIZE) * (self.top_signal[i] - self.bottom_signal[i])))
                 y_matrix[i][j] = (self.left_signal[i] - ((j / CHUNK_SIZE) * (self.left_signal[i] - self.right_signal[i])))
 
+
+        frontier_shape = biome_generator_helper.get_dominance_matrix_name(self.frontier_biome)
+        dominance_matrix = self.app_handler.map.biome_manager.dominance_matrix_index[frontier_shape]
+
         for i in range(CHUNK_SIZE):
             for j in range(CHUNK_SIZE):
                 matrix[i][j][0] = (x_matrix[i][j] + y_matrix[j][i]) / 2
                 x, y = absolute_chunk_x + i * TILE_SIZE, absolute_chunk_y + j * TILE_SIZE
-                tile = Tile(self.app_handler,x, y, matrix[i][j][0])
+                height_index = get_height_index(matrix[i][j][0], VARIANTS_NUMBER, TILE_HEIGHT_SATURATION)
+                variant = dominance_matrix[i][j]
+                chosen_image = self.biome.assets[variant][height_index]
+
+                tile = Tile(self.app_handler,x, y, chosen_image)
                 matrix[i][j][1] = measure_function(f"chunks: {chunk_number} aaa", BaseSprite, self.app_handler, tile)
         return matrix
 
