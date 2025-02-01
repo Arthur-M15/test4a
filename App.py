@@ -6,6 +6,7 @@ from Map import *
 import threading
 lock = threading.Lock()
 from test_tools import *
+from pygame._sdl2.video import Texture, Image as Image
 
 
 class BaseSprite:
@@ -15,34 +16,37 @@ class BaseSprite:
         :param x: Relative x position of the object on the window
         :param y: Relative y position of the object on the window
         """
-        start2 = time.time()
         self.app_handler = app_handler
         self.in_sprite_list = False
-        #todo : add sprite_name conditions
         self.entity = entity
         self.image = self.entity.image
         self.original_image = self.entity.image
-        self.image_size = entity.max_size
         self.rect = self.entity.image.get_rect()
-        self.orig_rect = self.rect.copy()
-        self.x, self.y = self.app_handler.cam_x - self.entity.x, self.app_handler.cam_y - self.entity.y
 
-        self.offset_x = (WIN_W - TOTAL_WIDTH)/2
-        self.offset_y = (WIN_H - TOTAL_WIDTH)/2
-        print_time(time.time() - start2, "inside_base", 0.01)
+        self.zoom_scale = app_handler.zoom_scale
+        self.offset_x, self.offset_y = self.set_offset()
+        self.x, self.y = self.app_handler.cam_x - self.entity.x, self.app_handler.cam_y - self.entity.y
 
 
     def update(self):
+        self.set_offset()
+        self.action()
         self.x, self.y = self.entity.x - self.app_handler.cam_x + self.offset_x, self.entity.y - self.app_handler.cam_y + self.offset_y
         self.rect.center = self.x, self.y
-        self.action()
 
     def action(self):
-        pass
+        if 'mouse_wheel' in self.app_handler.app.keybind:
+            if self.zoom_scale != self.app_handler.zoom_scale:
+                self.zoom_scale = self.app_handler.zoom_scale
+                self.set_offset()
+                self.image.texture.renderer.scale = (self.zoom_scale/5, self.zoom_scale/5)
 
+    def set_offset(self):
+        self.offset_x = ((WIN_W - TOTAL_WIDTH) / 2) - (WIN_W - ((5 / self.zoom_scale) * WIN_W)) / 2
+        self.offset_y = ((WIN_H - TOTAL_WIDTH) / 2) - (WIN_H - ((5 / self.zoom_scale) * WIN_H)) / 2
+        self.x, self.y = self.entity.x - self.app_handler.cam_x + self.offset_x, self.entity.y - self.app_handler.cam_y + self.offset_y
+        return self.offset_x, self.offset_y
 
-    def zoom_down(self):
-        pass
 
     def add_to_group(self):
         if not self.in_sprite_list:
@@ -58,8 +62,8 @@ class BaseSprite:
 class AppHandler:
     def __init__(self, app):
         self.app = app
-        self.cam_x = 0
-        self.cam_y = 0
+        self.cam_x, self.cam_y = 0, 0
+        self.renderer_offset_x, self.renderer_offset_y = 0, 0
         self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
         self.visible_chunks = []
         self.map = Map(self)
@@ -69,36 +73,31 @@ class AppHandler:
         self.font = ft.SysFont('Verdana', FONT_SIZE)
         self.tick_divider = 0
         self.number_of_loaded_sprites = 0
+        self.zoom_scale = 5
+        self.cam_speed = BASE_SPEED
 
 
     def move(self):
         if 'up' in game_app.keybind:
-            self.cam_y -= SPEED
+            self.cam_y -= self.cam_speed
         if 'down' in game_app.keybind:
-            self.cam_y += SPEED
+            self.cam_y += self.cam_speed
         if 'left' in game_app.keybind:
-            self.cam_x -= SPEED
+            self.cam_x -= self.cam_speed
         if 'right' in game_app.keybind:
-            self.cam_x += SPEED
+            self.cam_x += self.cam_speed
 
 
     def interact(self):
         if 'left_click' in game_app.keybind:
             self.add_entity()
-        if 'mouse_up' in game_app.keybind:
-            self.app.scale += 0.1
-            self.app.renderer.scale = (self.app.scale, self.app.scale)
-            rect_value = self.app.renderer.get_viewport()
-            rect_value[0], rect_value[1] = rect_value[0] - 20, rect_value[1] - 20
-            self.app.renderer.set_viewport(rect_value)
+        if 'mouse_up' in game_app.keybind and self.zoom_scale < 10:
+            self.zoom_scale += 1
+            self.load_chunks_thread()
+        if 'mouse_down' in game_app.keybind and self.zoom_scale > 2:
+            self.zoom_scale -= 1
+            self.load_chunks_thread()
 
-
-        if 'mouse_down' in game_app.keybind:
-            self.app.scale -= 0.1
-            self.app.renderer.scale = (self.app.scale, self.app.scale)
-            rect_value = self.app.renderer.get_viewport()
-            rect_value[0], rect_value[1] = rect_value[0] + 20, rect_value[1] + 20
-            self.app.renderer.set_viewport(rect_value)
 
     def timing_function(self, frequency, function, *args, **kwargs):
         if self.tick_divider % frequency == 0:
@@ -129,37 +128,32 @@ class AppHandler:
 
     def load_chunks(self):
         if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or self.map.chunks.super_chunk_location == {}:
-            start = time.time()
             self.load_chunks_thread()
-            if print_time(time.time()-start):
-                a = 10
-
             if not lock.locked():
                 pass
                 """thread = threading.Thread(target=self.load_chunks_thread)
                 thread.start()"""
 
     def load_chunks_thread(self):
-        with lock:
-            previous_chunks = self.visible_chunks
-            self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
-            loading_zones = self.get_loading_zone()
-            self.visible_chunks = self.get_visible_chunks()
+        previous_chunks = self.visible_chunks
+        self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
+        loading_zones = self.get_loading_zone()
+        self.visible_chunks = self.get_visible_chunks()
 
-            for chunk_coordinates in self.visible_chunks:
-                if chunk_coordinates in loading_zones:
-                    if not self.map.chunks.get(chunk_coordinates):
-                        self.map.load_chunk(chunk_coordinates)
-                    for chunk_x in self.map.chunks.get(chunk_coordinates).tiles:
-                        for tile in chunk_x:
-                            tile[1].add_to_group()
+        for chunk_coordinates in self.visible_chunks:
+            if chunk_coordinates in loading_zones:
+                if not self.map.chunks.get(chunk_coordinates):
+                    self.map.load_chunk(chunk_coordinates)
+                for chunk_x in self.map.chunks.get(chunk_coordinates).tiles:
+                    for tile in chunk_x:
+                        tile[1].add_to_group()
 
-            for chunk_coordinates in previous_chunks:
-                if chunk_coordinates not in self.visible_chunks and self.map.chunks.get(chunk_coordinates):
-                    for chunk_x in self.map.chunks.get(chunk_coordinates).tiles:
-                        for tile in chunk_x:
-                            tile[1].remove_from_group()
-                    self.map.chunks.get(chunk_coordinates).unload()
+        for chunk_coordinates in previous_chunks:
+            if chunk_coordinates not in self.visible_chunks and self.map.chunks.get(chunk_coordinates):
+                for chunk_x in self.map.chunks.get(chunk_coordinates).tiles:
+                    for tile in chunk_x:
+                        tile[1].remove_from_group()
+                self.map.chunks.get(chunk_coordinates).unload()
 
     def get_loading_zone(self):
         return [
@@ -169,16 +163,21 @@ class AppHandler:
         ]
 
     def get_visible_chunks(self):
+        if self.zoom_scale < 5:
+            scale = 5 - self.zoom_scale
+        else:
+            scale = 0
+
         max_chunks_width = WIN_W // (CHUNK_SIZE * TILE_SIZE)
         max_chunks_height = WIN_H // (CHUNK_SIZE * TILE_SIZE)
 
-        chunk_offset_x = int(((WIN_W - TOTAL_WIDTH + CHUNK_WIDTH)/2)//CHUNK_WIDTH)
-        chunk_offset_y = int(((WIN_H - TOTAL_WIDTH + CHUNK_WIDTH)/2)//CHUNK_WIDTH)
+        chunk_offset_x = (WIN_W - TOTAL_WIDTH + CHUNK_WIDTH)//(CHUNK_WIDTH * 2)
+        chunk_offset_y = (WIN_H - TOTAL_WIDTH + CHUNK_WIDTH)//(CHUNK_WIDTH * 2)
 
         return [
             (i, j)
-            for i in range(self.chunk_position[0] - chunk_offset_x - 1, 1 + self.chunk_position[0] + max_chunks_width - chunk_offset_x + 1)
-            for j in range(self.chunk_position[1] - chunk_offset_y - 1, 1 + self.chunk_position[1] + max_chunks_height - chunk_offset_y + 1)
+            for i in range(self.chunk_position[0] - chunk_offset_x - 1 - scale, 1 + self.chunk_position[0] + max_chunks_width - chunk_offset_x + 1 + scale)
+            for j in range(self.chunk_position[1] - chunk_offset_y - 1 - scale, 1 + self.chunk_position[1] + max_chunks_height - chunk_offset_y + 1 + scale)
         ]
 
 
@@ -218,6 +217,7 @@ class AppHandler:
 
         # Liste des lignes de texte à afficher
         lines = [
+            f"scale: {self.zoom_scale}",
             f"Active sprites: {active_sprites}",
             f"Passive sprites: {total_tiles}",
             f"{fps:.2f} fps",  # Limitez les FPS à deux décimales
@@ -269,8 +269,11 @@ class App:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 4:
                     self.keybind['mouse_up'] = True
+                    self.keybind['mouse_wheel'] = True
                 elif event.button == 5:
                     self.keybind['mouse_down'] = True
+                    self.keybind['mouse_wheel'] = True
+
 
         keys = pg.key.get_pressed()
         if keys[pg.K_UP]:
