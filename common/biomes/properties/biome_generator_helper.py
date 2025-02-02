@@ -49,14 +49,10 @@ def assets_generator(main_color, next_color, renderer, color_variants_number=5):
     assets = []
     for i, rgb_list in enumerate(rgb_matrix.values()):
         assets.append([tile_generator(rgb, renderer)[1] for rgb in rgb_list])
-        for j, rgb in enumerate(rgb_list):
-            a = tile_generator(rgb, renderer)[0]
-            tile_generator(rgb, renderer)[0].save(f"C:/Users/Arthur/PycharmProjects/test4a/test/{str(hash(main_color))}-{i}{j}.png")
-
-    """if main_color == ((0, 0, 100), (0, 0, 200), (0, 0, 250)):
-        for i in range(len(assets)):
-            for j in range(len(assets[i])):
-                assets[i][j].save(f"C:/Users/Arthur/PycharmProjects/test4a/test/{str(hash(main_color))}-{i}{j}.png")"""
+        if False:
+            for j, rgb in enumerate(rgb_list):
+                a = tile_generator(rgb, renderer)[0]
+                tile_generator(rgb, renderer)[0].save(f"C:/Users/Arthur/PycharmProjects/test4a/test/{str(hash(main_color))}-{i}{j}.png")
     return assets
 
 
@@ -109,7 +105,7 @@ def pil_to_pygame(new_image, renderer):
     elif mode == "RGB":
         new_image = pg.image.fromstring(data, size, "RGB")
     else:
-        raise ValueError(f"Mode d'image non supporté : {mode}")
+        raise ValueError(f"Unsupported image mode: {mode}")
     return Pyimage(Texture.from_surface(renderer, new_image))
 
 
