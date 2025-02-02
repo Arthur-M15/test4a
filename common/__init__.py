@@ -1,4 +1,3 @@
-__all__ = ["biomes", "entities"]
+__all__ = ["biomes"]
 
 from .biomes import Biome
-from .entities import Super
