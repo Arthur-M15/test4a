@@ -6,7 +6,7 @@ def measure_function(information, function, *args, **kwargs):
     start = time.time()
     result = function(*args, **kwargs)
     interval = time.time() - start
-    if interval > 0.01:
+    if interval >= 0.01:
         print(f"{function.__name__}: {interval:.5f}")
         print(information)
     return result

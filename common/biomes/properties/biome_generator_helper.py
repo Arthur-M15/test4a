@@ -48,11 +48,7 @@ def assets_generator(main_color, next_color, renderer, color_variants_number=5):
 
     assets = []
     for i, rgb_list in enumerate(rgb_matrix.values()):
-        assets.append([tile_generator(rgb, renderer)[1] for rgb in rgb_list])
-        if False:
-            for j, rgb in enumerate(rgb_list):
-                a = tile_generator(rgb, renderer)[0]
-                tile_generator(rgb, renderer)[0].save(f"C:/Users/Arthur/PycharmProjects/test4a/test/{str(hash(main_color))}-{i}{j}.png")
+        assets.append([tile_generator(rgb)[1] for rgb in rgb_list])
     return assets
 
 
@@ -69,7 +65,7 @@ def sum_colors(color1, color2, second_dominance):
     return new_color
 
 
-def tile_generator(rgb, renderer, scale_factor=20, additional_pixel=None):
+def tile_generator(rgb, scale_factor=20, additional_pixel=None):
     size = (4, 5)
     image = Image.new("RGBA", size, rgb)
     alpha_color = (0, 0, 0, 0)
@@ -88,10 +84,9 @@ def tile_generator(rgb, renderer, scale_factor=20, additional_pixel=None):
     image = auto_crop_right(image)
     #image.save("C:/Users/Arthur/PycharmProjects/test4a/name.png")
 
-    return image, pil_to_pygame(image, renderer)
+    return image, pil_to_surface(image)
 
 def pil_to_pygame(new_image, renderer):
-
     """
     Convertit une image Pillow (PIL.Image) en Surface Pygame compatible.
     """
@@ -107,6 +102,25 @@ def pil_to_pygame(new_image, renderer):
     else:
         raise ValueError(f"Unsupported image mode: {mode}")
     return Pyimage(Texture.from_surface(renderer, new_image))
+
+
+def pil_to_surface(new_image):
+    """
+    converts a PIL image into a pygame surface.
+    :param new_image:
+    :return:
+    """
+    mode = new_image.mode
+    size = new_image.size
+    data = new_image.tobytes()
+
+    if mode == "RGBA":
+        return pg.image.fromstring(data, size, "RGBA")
+    elif mode == "RGB":
+        return pg.image.fromstring(data, size, "RGB")
+    else:
+        raise ValueError(f"Unsupported image mode: {mode}")
+
 
 
 def auto_crop_left(image):
@@ -244,8 +258,6 @@ def simple_dominance_matrix(chunk_size, shape):
 
     else:
         raise Exception("Invalid shape")
-    for line in matrix:
-        print(line)
     return matrix
 
 
