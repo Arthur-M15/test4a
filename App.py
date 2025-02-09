@@ -4,6 +4,7 @@ import test
 from Settings import *
 from typing import Union
 from Map import *
+from ThreadHandler import *
 import threading
 lock = threading.Lock()
 import concurrent.futures
@@ -55,7 +56,6 @@ class BaseSprite:
                 self.in_sprite_list = False
                 self.is_loaded = False
                 print("error")
-                #print(self)
                 return
             self.app_handler.in_group.remove_internal(self)
             self.in_sprite_list = False
@@ -80,6 +80,10 @@ class AppHandler:
 
         self.thread_handler = ThreadHandler()
         self.thread_handler.create(self.load_chunks_v3)
+
+        # TEST
+        self.crosshair = pg.Surface([4, 4])
+        self.crosshair.set_colorkey((255, 0, 0))
 
     def move(self):
         if 'up' in game_app.keybind:
@@ -149,6 +153,7 @@ class AppHandler:
                 if chunk_coordinates not in self.visible_chunks and self.map.chunks.get(chunk_coordinates):
                     self.map.chunks.get(chunk_coordinates).remove_from_group()
                     self.map.chunks.get(chunk_coordinates).unload()
+                    pass
 
             # fixme : idée : au moment de la mise à jour du chunk appartenant à map, il peut devenir instable car il est accédé par plusieurs fonctions
             # solution : créer séparément le chunk et l'ajouter à la map.
@@ -260,14 +265,20 @@ class AppHandler:
 
     def draw_hud(self):
         self.param_hud.set_colorkey((0, 0, 0))
+        self.param_hud.fill((0, 0, 0))
 
         # Récupération des informations à afficher
         active_sprites = len(self.in_group)
         total_tiles = self.number_of_loaded_sprites
         fps = self.app.get_fps()
-        cam_coord = f"x: {self.cam_x} | y: {self.cam_y}"
 
-        # Liste des lignes de texte à afficher
+        offset_x = ((WIN_W - TOTAL_WIDTH) // 2) - (WIN_W - ((5 / self.zoom_scale) * WIN_W)) // 2
+        offset_y = ((WIN_H - TOTAL_WIDTH) // 2) - (WIN_H - ((5 / self.zoom_scale) * WIN_H)) // 2
+        center_x, center_y = (((WIN_W//2) + self.cam_x + offset_x)//TILE_SIZE, ((WIN_H//2) + self.cam_y + offset_y)//TILE_SIZE)
+        chunk_pos = self.get_chunk_position((center_x, center_y))
+        cam_coord = f"x: {center_x} | y: {center_y}"
+        chunk_coord = f"x: {chunk_pos[0]} | y: {chunk_pos[1]}"
+
         lines = [
             f"scale: {self.zoom_scale}",
             f"Active sprites: {active_sprites}",
@@ -289,34 +300,12 @@ class AppHandler:
         hud = Texture.from_surface(self.app.renderer, self.param_hud)
         hud.draw((0, 0, *[300, 200]), (0, 0, *[300, 200]))
 
-
-class ThreadHandler:
-    def __init__(self):
-        self.threads = {}
-        self.last_function = None
-
-    def create(self, function, *args):
-        name = function.__name__
-        self.last_function = function
-        self.threads[name] = threading.Thread(target=self.__loop_function, args=args)
-        self.threads.get(name).start()
-
-    def __loop_function(self, *args):
-        func = self.last_function
-        while self.threads.get(func.__name__) is not None:
-            func(*args)
-
-    def test(self, val):
-        return "test: " + str(val)
-
-    def stop(self, function_name):
-        self.threads.pop(function_name).join()
-
-    def stop_all(self):
-        for name, thread in self.threads.items():
-            thread.join(timeout=0)
-        self.threads.clear()
-
+    def draw_crosshair(self):
+        size = self.crosshair.get_rect()[-1]
+        middle_pos_x, middle_pos_y = (WIN_W // 2) - (size//2), (WIN_H // 2) - (size//2)
+        crosshair = Texture.from_surface(self.app.renderer, self.crosshair)
+        crosshair.draw((0, 0, *[size, size]), (middle_pos_x, middle_pos_y, *[size, size]))
+        pass
 
 
 class App:
@@ -338,6 +327,7 @@ class App:
         self.app_handler.update()
         self.app_handler.draw()
         self.app_handler.draw_hud()
+        self.app_handler.draw_crosshair()
         self.renderer.present()
 
     def inputs(self):

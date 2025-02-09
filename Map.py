@@ -2,7 +2,6 @@ from App import BaseSprite
 import math
 
 from common.biomes.BiomeManager import *
-from test_tools import *
 from pygame import Surface
 from pygame._sdl2 import Image, Texture
 
@@ -131,11 +130,13 @@ class Chunk(BaseSprite):
         self.chunk_x = chunk_x
         self.chunk_y = chunk_y
         self.variation = CHUNK_VARIATIONS
+        self.loading = True
 
         self.top_signal = None
         self.bottom_signal = None
         self.left_signal = None
         self.right_signal = None
+        self.tiles = []
         self.biome = biome
         self.frontier_biome = self.get_frontier_biome()
 
@@ -160,6 +161,7 @@ class Chunk(BaseSprite):
 
 
     def create(self, top_chunk, bottom_chunk, left_chunk, right_chunk, biome_index=1):
+        self.loading = True
         top_signal = []
         bottom_signal = []
         left_signal = []
@@ -234,10 +236,12 @@ class Chunk(BaseSprite):
         self.right_signal = right_signal
 
         self.generate_chunk_image()
+        self.loading = False
 
     def generate_chunk_image(self):
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
+        matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         size = CHUNK_SIZE * TILE_SIZE + TILE_SIZE/4
         surf = Surface((size, size), pg.SRCALPHA)
 
@@ -256,13 +260,17 @@ class Chunk(BaseSprite):
                 variant = dominance_matrix[i][j]
                 chosen_image = self.biome.assets[variant][height_index]
                 surf.blit(chosen_image, (i * TILE_SIZE, j * TILE_SIZE))
+                matrix[i][j] = (x_matrix[i][j] + y_matrix[j][i]) / 2
+        self.tiles = matrix
         self.image = Image(Texture.from_surface(self.app_handler.app.renderer, surf))
+        if self.image is None:
+            print("alert!")
         self.rect = self.image.get_rect()
         self.is_loaded = True
 
 
 
-    def __generate_matrix(self):
+    """def __generate_matrix(self):
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         matrix = [[[0.0, None] for _ in range(CHUNK_SIZE)] for _ in range(CHUNK_SIZE)]
@@ -291,12 +299,13 @@ class Chunk(BaseSprite):
                 tile = Tile(self.app_handler,x, y, chosen_image)
                 #matrix[i][j][1] = measure_function(f"chunks: {chunk_number} aaa", BaseSprite, self.app_handler, tile)
         self.app_handler.number_of_loaded_sprites += CHUNK_SIZE * CHUNK_SIZE
-        return matrix
+        return matrix"""
 
 
     def unload(self):
         if self.is_loaded:
             self.image = None
+            self.tiles = []
             self.is_loaded = False
             self.app_handler.number_of_loaded_sprites -= 1
 
