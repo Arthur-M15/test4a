@@ -25,30 +25,10 @@ class Map:
     def load_chunk(self, chunk_coordinates):
         x, y = chunk_coordinates
         if self.chunks.get((x, y)) is None:
-
-            # Gathering neighbor chunks information
-            if self.chunks.get((x, y - 1)):
-                top_chunk = self.chunks.get((x, y - 1)).get_information()
-            else:
-                top_chunk = None
-
-            if self.chunks.get((x, y + 1)):
-                bottom_chunk = self.chunks.get((x, y + 1)).get_information()
-            else:
-                bottom_chunk = None
-
-            if self.chunks.get((x - 1, y)):
-                left_chunk = self.chunks.get((x - 1, y)).get_information()
-            else:
-                left_chunk = None
-
-            if self.chunks.get((x + 1, y)):
-                right_chunk = self.chunks.get((x + 1, y)).get_information()
-            else:
-                right_chunk = None
-
             self.chunks.set((x, y), Chunk(self.app_handler, x, y, self.get_biome(x, y)))
-            self.chunks.get((x, y)).create(top_chunk, bottom_chunk, left_chunk, right_chunk)
+        else:
+            self.chunks.get((x, y)).reload()
+        return True
 
     def get_biome(self, chunk_x, chunk_y):
         return self.biome_manager.get_biome(chunk_x, chunk_y)
@@ -84,8 +64,9 @@ class SuperChunk:
         position_in_list = self.super_chunk_location.get((super_x, super_y))
         if position_in_list is not None:
             chunk = self.super_chunks[position_in_list].get(coordinates)
-            if chunk is not None and chunk.image is not None and chunk.is_loaded:
-                chunk.reload()
+            """
+            if chunk is not None and chunk.image is not None and not chunk.is_loaded:
+                chunk.reload()"""
             return chunk
         return None
 
@@ -117,7 +98,7 @@ class SuperChunk:
 
 
 class Chunk(BaseSprite):
-    def __init__(self, app_handler, chunk_x, chunk_y, biome, is_loaded=False):
+    def __init__(self, app_handler, chunk_x, chunk_y, biome):
         """
         Group of tiles.
         :param app_handler: app_handler
@@ -126,11 +107,10 @@ class Chunk(BaseSprite):
         :param biome: Biome
         :param is_loaded: True if self.image not None
         """
-        super().__init__(app_handler, (chunk_x * CHUNK_WIDTH, chunk_y * CHUNK_WIDTH), is_loaded)
+        super().__init__(app_handler, (chunk_x * CHUNK_WIDTH, chunk_y * CHUNK_WIDTH))
         self.chunk_x = chunk_x
         self.chunk_y = chunk_y
         self.variation = CHUNK_VARIATIONS
-        self.loading = True
 
         self.top_signal = None
         self.bottom_signal = None
@@ -139,6 +119,8 @@ class Chunk(BaseSprite):
         self.tiles = []
         self.biome = biome
         self.frontier_biome = self.get_frontier_biome()
+        self.create_borders()
+        self.is_loaded = False
 
 
     def get_frontier_biome(self):
@@ -159,9 +141,31 @@ class Chunk(BaseSprite):
         info = {key: value for key, value in self.__dict__.items() if "signal" in key}
         return info
 
+    def get_frontier_chunks(self, x, y):
+        # Gathering neighbor chunks information
+        if self.app_handler.map.chunks.get((x, y - 1)):
+            top_chunk = self.app_handler.map.chunks.get((x, y - 1)).get_information()
+        else:
+            top_chunk = None
 
-    def create(self, top_chunk, bottom_chunk, left_chunk, right_chunk, biome_index=1):
-        self.loading = True
+        if self.app_handler.map.chunks.get((x, y + 1)):
+            bottom_chunk = self.app_handler.map.chunks.get((x, y + 1)).get_information()
+        else:
+            bottom_chunk = None
+
+        if self.app_handler.map.chunks.get((x - 1, y)):
+            left_chunk = self.app_handler.map.chunks.get((x - 1, y)).get_information()
+        else:
+            left_chunk = None
+
+        if self.app_handler.map.chunks.get((x + 1, y)):
+            right_chunk = self.app_handler.map.chunks.get((x + 1, y)).get_information()
+        else:
+            right_chunk = None
+        return top_chunk, bottom_chunk, left_chunk, right_chunk
+
+    def create_borders(self,):
+        top_chunk, bottom_chunk, left_chunk, right_chunk = self.get_frontier_chunks(self.chunk_x, self.chunk_y)
         top_signal = []
         bottom_signal = []
         left_signal = []
@@ -235,9 +239,6 @@ class Chunk(BaseSprite):
         self.left_signal = left_signal
         self.right_signal = right_signal
 
-        self.generate_chunk_image()
-        self.loading = False
-
     def generate_chunk_image(self):
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
@@ -268,56 +269,27 @@ class Chunk(BaseSprite):
         self.rect = self.image.get_rect()
         self.is_loaded = True
 
-
-
-    """def __generate_matrix(self):
-        x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
-        y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
-        matrix = [[[0.0, None] for _ in range(CHUNK_SIZE)] for _ in range(CHUNK_SIZE)]
-
-        absolute_chunk_x = self.chunk_x * TILE_SIZE * CHUNK_SIZE
-        absolute_chunk_y = self.chunk_y * TILE_SIZE * CHUNK_SIZE
-        chunk_number = len(self.app_handler.map.chunks)
-
-        for i in range(CHUNK_SIZE):
-            for j in range(CHUNK_SIZE):
-                x_matrix[i][j] = (self.top_signal[i] - ((j / CHUNK_SIZE) * (self.top_signal[i] - self.bottom_signal[i])))
-                y_matrix[i][j] = (self.left_signal[i] - ((j / CHUNK_SIZE) * (self.left_signal[i] - self.right_signal[i])))
-
-
-        frontier_shape = biome_generator_helper.get_dominance_matrix_name(self.frontier_biome)
-        dominance_matrix = self.app_handler.map.biome_manager.dominance_matrix_index[frontier_shape]
-
-        for i in range(CHUNK_SIZE):
-            for j in range(CHUNK_SIZE):
-                matrix[i][j][0] = (x_matrix[i][j] + y_matrix[j][i]) / 2
-                x, y = absolute_chunk_x + i * TILE_SIZE, absolute_chunk_y + j * TILE_SIZE
-                height_index = get_height_index(matrix[i][j][0], VARIANTS_NUMBER, TILE_HEIGHT_SATURATION)
-                variant = dominance_matrix[i][j]
-                chosen_image = self.biome.assets[variant][height_index]
-
-                tile = Tile(self.app_handler,x, y, chosen_image)
-                #matrix[i][j][1] = measure_function(f"chunks: {chunk_number} aaa", BaseSprite, self.app_handler, tile)
-        self.app_handler.number_of_loaded_sprites += CHUNK_SIZE * CHUNK_SIZE
-        return matrix"""
-
-
     def unload(self):
         if self.is_loaded:
             self.image = None
             self.tiles = []
             self.is_loaded = False
             self.app_handler.number_of_loaded_sprites -= 1
-
+        else:
+            print("warning: sprites not loaded")
+            self.image = None
+            self.tiles = []
+            self.is_loaded = False
 
     def reload(self):
         if not self.is_loaded:
             self.generate_chunk_image()
             self.app_handler.number_of_loaded_sprites += 1
-
-
-
-
+            self.is_loaded = True
+        else:
+            print("Warning: reload() called twice!")
+            self.generate_chunk_image()
+            self.is_loaded = True
 
 
 def create_curve(start=None, stop=None, start_derivative=0, stop_derivative=0, variations=1, size = None):
