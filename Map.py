@@ -120,7 +120,8 @@ class Chunk(BaseSprite):
         self.biome = biome
         self.frontier_biome = self.get_frontier_biome()
         self.create_borders()
-        self.is_loaded = False
+        self.generate_chunk_image()
+        self.is_loaded = True
 
 
     def get_frontier_biome(self):
