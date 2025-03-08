@@ -107,7 +107,6 @@ class SuperChunk:
             position_in_list = len(self.super_chunks)
             self.super_chunk_location[(super_x, super_y)] = len(self.super_chunks)
             self.super_chunks.append({})
-            #print(len(self.super_chunk_location))
 
         if not self.super_chunks[position_in_list].get(coordinates) or force_update:
             self.super_chunks[position_in_list][coordinates] = new_chunk

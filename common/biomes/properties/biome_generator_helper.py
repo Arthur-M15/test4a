@@ -244,8 +244,6 @@ def simple_dominance_matrix(chunk_size, shape):
 
     else:
         raise Exception("Invalid shape")
-    for line in matrix:
-        print(line)
     return matrix
 
 

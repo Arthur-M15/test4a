@@ -23,30 +23,24 @@ class BaseSprite:
         self.original_image = self.entity.image
         self.rect = self.entity.image.get_rect()
 
-        self.zoom_scale = app_handler.zoom_scale
-        self.offset_x, self.offset_y = self.set_offset()
+        self.offset_x, self.offset_y = None, None
+        self.set_position()
         self.x, self.y = self.app_handler.cam_x - self.entity.x, self.app_handler.cam_y - self.entity.y
 
-
     def update(self):
-        self.set_offset()
+        self.set_position()
         self.action()
         self.x, self.y = self.entity.x - self.app_handler.cam_x + self.offset_x, self.entity.y - self.app_handler.cam_y + self.offset_y
         self.rect.center = self.x, self.y
 
     def action(self):
         if 'mouse_wheel' in self.app_handler.app.keybind:
-            if self.zoom_scale != self.app_handler.zoom_scale:
-                self.zoom_scale = self.app_handler.zoom_scale
-                self.set_offset()
-                self.image.texture.renderer.scale = (self.zoom_scale/5, self.zoom_scale/5)
+            self.set_position()
+            self.image.texture.renderer.scale = (self.app_handler.zoom_scale/5, self.app_handler.zoom_scale/5)
 
-    def set_offset(self):
-        self.offset_x = ((WIN_W - TOTAL_WIDTH) / 2) - (WIN_W - ((5 / self.zoom_scale) * WIN_W)) / 2
-        self.offset_y = ((WIN_H - TOTAL_WIDTH) / 2) - (WIN_H - ((5 / self.zoom_scale) * WIN_H)) / 2
+    def set_position(self):
+        self.offset_x, self.offset_y = self.app_handler.get_offset()
         self.x, self.y = self.entity.x - self.app_handler.cam_x + self.offset_x, self.entity.y - self.app_handler.cam_y + self.offset_y
-        return self.offset_x, self.offset_y
-
 
     def add_to_group(self):
         if not self.in_sprite_list:
@@ -113,7 +107,7 @@ class AppHandler:
         self.interact()
         self.in_group.update()
         self.sort_sprite_group()
-        self.timing_function(120, self.print_biome)
+        #self.timing_function(120, self.print_biome)
 
     def print_biome(self):
         x, y = self.get_chunk_position()
@@ -201,6 +195,11 @@ class AppHandler:
             chunk_x = position[0] // (TILE_SIZE * CHUNK_SIZE)
             chunk_y = position[1] // (TILE_SIZE * CHUNK_SIZE)
         return chunk_x, chunk_y
+
+    def get_offset(self):
+        x = ((WIN_W - TOTAL_WIDTH) / 2) - (WIN_W - ((5 / self.zoom_scale) * WIN_W)) / 2
+        y = ((WIN_H - TOTAL_WIDTH) / 2) - (WIN_H - ((5 / self.zoom_scale) * WIN_H)) / 2
+        return x, y
 
     def draw(self):
         # Draw only the visible group
@@ -323,13 +322,12 @@ class App:
         return image
 
 if __name__ == '__main__':
-    if False:
+    """if False:
         common.biomes.properties.biome_generator_helper.simple_dominance_matrix(10, "corner")
-        """test2 = test.main()
+        test2 = test.main()
         test = BiomeOffsetList()
         a = test.get_offset(0)
-        print(a)"""
         #biome_generator_helper.assets_generator(((100, 100, 100), (200, 200, 200), (0, 0, 0)), ((0, 100, 100), (0, 200, 200), (10, 0, 0)))
-    else:
-        game_app = App()
-        game_app.run_application()
+    else:"""
+    game_app = App()
+    game_app.run_application()
