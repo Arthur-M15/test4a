@@ -1,3 +1,5 @@
+import pygame.image
+
 from App import BaseSprite
 import math
 
@@ -263,6 +265,10 @@ class Chunk(BaseSprite):
                 chosen_image = self.biome.assets[variant][height_index]
                 surf.blit(chosen_image, (i * TILE_SIZE, j * TILE_SIZE))
                 matrix[i][j] = (x_matrix[i][j] + y_matrix[j][i]) / 2
+        if self.chunk_y == 0 and self.chunk_x == 0:
+            corner = pygame.image.load("corner.png")
+            surf.blit(corner, (0, 0))
+
         self.tiles = matrix
         self.image = Image(Texture.from_surface(self.app_handler.app.renderer, surf))
         if self.image is None:
