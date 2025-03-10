@@ -1,9 +1,12 @@
 # Ignorer les fichiers compilés Python
 __pycache__/
 *.pyc
+*.pyd
 
 # Ignorer les environnements virtuels
 .venv/
 
 # Ignorer les fichiers de configuration des IDE (comme PyCharm)
 .idea/
+
+build
