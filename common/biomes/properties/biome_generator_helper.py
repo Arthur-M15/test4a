@@ -1,9 +1,8 @@
-from PIL import Image
+from PIL import Image as imagePIL
 import numpy as np
-from pygame._sdl2.video import Texture, Image as Pyimage
 import pygame as pg
 
-def assets_generator(main_color, next_color, renderer, color_variants_number=5):
+def assets_generator(main_color, next_color, color_variants_number=5):
     """
     Create a double list of images.
     return asset[i][j] with i and j respectively variation index and height index.
@@ -48,11 +47,7 @@ def assets_generator(main_color, next_color, renderer, color_variants_number=5):
 
     assets = []
     for i, rgb_list in enumerate(rgb_matrix.values()):
-        assets.append([tile_generator(rgb, renderer)[1] for rgb in rgb_list])
-        if False:
-            for j, rgb in enumerate(rgb_list):
-                a = tile_generator(rgb, renderer)[0]
-                tile_generator(rgb, renderer)[0].save(f"C:/Users/Arthur/PycharmProjects/test4a/test/{str(hash(main_color))}-{i}{j}.png")
+        assets.append([tile_generator(rgb)[1] for rgb in rgb_list])
     return assets
 
 
@@ -69,9 +64,9 @@ def sum_colors(color1, color2, second_dominance):
     return new_color
 
 
-def tile_generator(rgb, renderer, scale_factor=20, additional_pixel=None):
+def tile_generator(rgb, scale_factor=20, additional_pixel=None):
     size = (4, 5)
-    image = Image.new("RGBA", size, rgb)
+    image = imagePIL.new("RGBA", size, rgb)
     alpha_color = (0, 0, 0, 0)
     pixels = image.load()
     pixels[0, 0] = alpha_color
@@ -82,32 +77,30 @@ def tile_generator(rgb, renderer, scale_factor=20, additional_pixel=None):
 
     image = image.convert("RGBA")
     enlarged_size = (size[0] * scale_factor, size[1] * scale_factor)
-    image = image.resize(enlarged_size, Image.NEAREST)
-    image = image.rotate(45, expand=True, resample=Image.NEAREST)
+    image = image.resize(enlarged_size, imagePIL.NEAREST)
+    image = image.rotate(45, expand=True, resample=imagePIL.NEAREST)
     image = auto_crop_left(image)
     image = auto_crop_right(image)
     #image.save("C:/Users/Arthur/PycharmProjects/test4a/name.png")
 
-    return image, pil_to_pygame(image, renderer)
+    return image, pil_to_surface(image)
 
-def pil_to_pygame(new_image, renderer):
-
+def pil_to_surface(new_image):
     """
-    Convertit une image Pillow (PIL.Image) en Surface Pygame compatible.
+    converts a PIL image into a pygame surface.
+    :param new_image:
+    :return:
     """
     mode = new_image.mode
     size = new_image.size
     data = new_image.tobytes()
 
-    # Vérification du mode pour s'assurer qu'il est compatible avec Pygame
     if mode == "RGBA":
-        new_image = pg.image.fromstring(data, size, "RGBA")
+        return pg.image.fromstring(data, size, "RGBA")
     elif mode == "RGB":
-        new_image = pg.image.fromstring(data, size, "RGB")
+        return pg.image.fromstring(data, size, "RGB")
     else:
         raise ValueError(f"Unsupported image mode: {mode}")
-    return Pyimage(Texture.from_surface(renderer, new_image))
-
 
 def auto_crop_left(image):
     pixels = image.load()

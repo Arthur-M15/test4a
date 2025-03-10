@@ -17,6 +17,6 @@ class ClassicBiome(Biome):
         manager.biome_directory[i] = self
 
         renderer = manager.map.app_handler.app.renderer
-        self.assets = assets_generator(self.main_color, self.next_biome.main_color, renderer, self.variants_number)
+        self.assets = assets_generator(self.main_color, self.next_biome.main_color, self.variants_number)
 
 
