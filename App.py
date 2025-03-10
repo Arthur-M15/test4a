@@ -9,7 +9,6 @@ import threading
 lock = threading.Lock()
 from test_tools import *
 from pygame._sdl2.video import Texture, Image as Image
-import copy
 
 
 class BaseSprite:
@@ -62,7 +61,6 @@ class AppHandler:
         self.cam_x, self.cam_y = 0, 0
         self.renderer_offset_x, self.renderer_offset_y = 0, 0
         self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
-        self.position_of_chunk_to_load = []
         self.map = Map(self)
         self.in_group = pg.sprite.Group()
         self.pause_group = {}
@@ -75,10 +73,10 @@ class AppHandler:
 
         self.map_lock = threading.Lock()
         self.chunk_command_lock = threading.Lock()
-        self.chunk_command = []
+        self.position_of_chunk_to_load = []
         self.visible_chunks = []
         self.thread_handler = ThreadHandler()
-        self.thread_handler.create(self.load_chunk_worker())
+        self.thread_handler.create(self.load_chunk_worker)
 
 
     def move(self):
@@ -161,8 +159,8 @@ class AppHandler:
     def load_chunk_worker(self):
         work = None
         with self.chunk_command_lock:
-            if len(self.chunk_command) > 0:
-                work = self.chunk_command.pop(0)
+            if len(self.position_of_chunk_to_load) > 0:
+                work = self.position_of_chunk_to_load.pop(0)
         if work is not None:
             coordinates = work[1]
             with self.map_lock:
@@ -171,13 +169,13 @@ class AppHandler:
             if work[0] == "load":
                 with self.map_lock:
                     chunk = self.map.chunks.get(coordinates)
-                independent_chunk = copy.deepcopy(chunk)
+                independent_chunk = chunk
                 independent_chunk.load_image()
                 with self.map_lock:
                     self.map.chunks[coordinates] = independent_chunk
             if work[0] == "unload":
                 with self.map_lock:
-                    self.map.chunks.get(coordinates).unload()
+                    self.map.chunks.get(coordinates).unload_image()
 
     def get_visible_chunks(self):
         """

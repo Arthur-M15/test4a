@@ -9,7 +9,7 @@ from random import randrange, uniform
 #WIN_SIZE = WIN_W, WIN_H = 1600, 900
 BIOME_SPRITE_DIR_PATH = 'common/biomes'
 FONTS_DIR_PATH = 'assets/fonts'
-WIN_SIZE = WIN_W, WIN_H = 1800, 800
+WIN_SIZE = WIN_W, WIN_H = 1800, 1000
 #WIN_SIZE = WIN_W, WIN_H = 1920, 1080
 FONT_SIZE = 14
 
@@ -23,7 +23,7 @@ NUM_ANGLES = 180
 DEBUG = True
 """
 
-BASE_SPEED = 20
+BASE_SPEED = 2
 CHUNK_SIZE = 8
 CHUNK_LOAD_DISTANCE = 40
 TILE_SIZE = 56

@@ -51,7 +51,7 @@ class Map:
                 neighbor_chunk["right"] = None
 
             biome = self.biome_manager.get_biome(x, y)
-            self.chunks[x, y] = Chunk(self.app_handler, x, y, biome, neighbor_chunk)
+            self.chunks[(x, y)] = Chunk(self.app_handler, x, y, biome, neighbor_chunk)
         else:
             pass
 
@@ -65,8 +65,10 @@ class Chunk(BaseSprite):
         self.tiles = []
         self.top_signal, self.bottom_signal, self.left_signal, self.right_signal = None, None, None, None
         self.biome = biome
-        self.entity_x = x
-        self.entity_y = y
+        self.chunk_x = x
+        self.chunk_y = y
+        self.entity_x = x * CHUNK_WIDTH
+        self.entity_y = y * CHUNK_WIDTH
 
         self.frontier_biome = None
         self.get_frontier_biome()
@@ -79,11 +81,11 @@ class Chunk(BaseSprite):
 
 
     def get_frontier_biome(self):
-        left = self.app_handler.biome_manager.get_biome(self.x - 1, self.y).name == self.biome.next_biome.name
-        top_left = self.app_handler.biome_manager.get_biome(self.x - 1, self.y + 1).name == self.biome.next_biome.name
-        top = self.app_handler.map.biome_manager.get_biome(self.x, self.y + 1).name == self.biome.next_biome.name
-        top_right = self.app_handler.map.biome_manager.get_biome(self.x + 1, self.y + 1).name == self.biome.next_biome.name
-        right = self.app_handler.map.biome_manager.get_biome(self.x + 1, self.y).name == self.biome.next_biome.name
+        left = self.app_handler.map.biome_manager.get_biome(self.chunk_x - 1, self.chunk_y).name == self.biome.next_biome.name
+        top_left = self.app_handler.map.biome_manager.get_biome(self.chunk_x - 1, self.chunk_y + 1).name == self.biome.next_biome.name
+        top = self.app_handler.map.biome_manager.get_biome(self.chunk_x, self.chunk_y + 1).name == self.biome.next_biome.name
+        top_right = self.app_handler.map.biome_manager.get_biome(self.chunk_x + 1, self.chunk_y + 1).name == self.biome.next_biome.name
+        right = self.app_handler.map.biome_manager.get_biome(self.chunk_x + 1, self.chunk_y).name == self.biome.next_biome.name
 
         self.frontier_biome =  (left, top_left, top, top_right, right)
 
@@ -195,7 +197,7 @@ class Chunk(BaseSprite):
                 chosen_image = self.biome.assets[variant][height_index]
                 surf.blit(chosen_image, (i * TILE_SIZE, j * TILE_SIZE))
                 matrix[i][j] = (x_matrix[i][j] + y_matrix[j][i]) / 2
-        if self.y == 0 and self.x == 0:
+        if self.chunk_y == 0 and self.chunk_x == 0:
             corner = pygame.image.load("corner.png")
             surf.blit(corner, (0, 0))
 
@@ -206,12 +208,12 @@ class Chunk(BaseSprite):
 
     def unload_image(self):
         if self.image is not None:
-            self.app_handler.number_of_loaded_sprites -= CHUNK_SIZE * CHUNK_SIZE
+            self.app_handler.number_of_loaded_sprites -= 1
         self.unload_from_screen()
 
     def load_image(self):
         if self.image is None:
-            self.app_handler.number_of_loaded_sprites += CHUNK_SIZE * CHUNK_SIZE
+            self.app_handler.number_of_loaded_sprites += 1
         self.generate_matrix()
         self.load_on_screen()
 

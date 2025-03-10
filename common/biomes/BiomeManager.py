@@ -4,13 +4,6 @@ from Settings import *
 from common.biomes.properties import *
 from common.biomes.properties.biome_generator_helper import *
 
-class Tile:
-    def __init__(self, app_handler, x, y, image):
-        self.app_handler = app_handler
-        self.x, self.y = x, y
-        self.max_size = TILE_SIZE
-        self.image = image
-
 
 class BiomeManager:
     def __init__(self, map, seed):
