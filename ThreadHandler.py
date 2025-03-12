@@ -1,5 +1,6 @@
 
 import threading
+import random
 
 class ThreadWorker(threading.Thread):
     def __init__(self, function, *args):
@@ -26,13 +27,13 @@ class ThreadHandler:
     def create(self, function, *args):
         """ Create and start a new thread running a function in a loop """
         name = function.__name__
-        if name in self.threads:
-            print(f"[ThreadHandler] A thread for {name} is already running.")
-            return
 
-        thread = ThreadWorker(function, *args)
-        self.threads[name] = thread
-        thread.start()
+        while name in self.threads:
+            name = function.__name__
+            name += f"_{str(random.randint(1000000, 9999999))}"
+
+        self.threads[name] = ThreadWorker(function, *args)
+        self.threads[name].start()
 
     def stop(self, function_name):
         """ Stop a specific thread """

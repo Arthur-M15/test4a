@@ -2,14 +2,13 @@ import time
 import cProfile
 import pstats
 
-def measure_function(information, function, *args, **kwargs):
+def measure_function(function, *args, **kwargs):
     start = time.time()
-    result = function(*args, **kwargs)
+    function(*args, **kwargs)
     interval = time.time() - start
-    if interval > 0.01:
-        print(f"{function.__name__}: {interval:.5f}")
-        print(information)
-    return result
+
+    #result = f"{function.__name__}: {interval:.5f} sec"
+    return interval
 
 def print_time(interval, tag="default", threshold = 0.05, information=""):
     if interval > threshold:

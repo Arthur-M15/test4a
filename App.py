@@ -1,12 +1,6 @@
-import time
-
 import pygame.mouse
-import common
-from Settings import *
 from ThreadHandler import *
 from Map import *
-import threading
-lock = threading.Lock()
 from test_tools import *
 from pygame._sdl2.video import Texture, Image as Image
 
@@ -15,8 +9,8 @@ class BaseSprite:
     def __init__(self, app_handler):
         """
         :param app_handler: The handler of the game
-        :param x: Relative x position of the object on the window
-        :param y: Relative y position of the object on the window
+        :param self.x: Relative x position of the object on the window
+        :param self.y: Relative y position of the object on the window
         """
         self.app_handler = app_handler
         self.image = None
@@ -50,7 +44,8 @@ class BaseSprite:
 
     def unload_from_screen(self):
         if self.in_sprite_list:
-            self.app_handler.in_group.remove_internal(self)
+            #self.app_handler.in_group.remove_internal(self)
+            self.app_handler.in_group.spritedict.pop(self, None)
             self.image = None
             self.in_sprite_list = False
 
@@ -71,12 +66,15 @@ class AppHandler:
         self.zoom_scale = 5
         self.cam_speed = BASE_SPEED
 
-        self.map_lock = threading.Lock()
-        self.chunk_command_lock = threading.Lock()
-        self.position_of_chunk_to_load = []
         self.visible_chunks = []
         self.thread_handler = ThreadHandler()
-        self.thread_handler.create(self.load_chunk_worker)
+
+        self.chunk_manager = ChunkManager(self)
+        self.chunk_manager.initialize()
+
+        #dev benchmark
+        self.function_timing_result = 0
+        self.min_fps = 100000
 
 
     def move(self):
@@ -115,6 +113,7 @@ class AppHandler:
         self.in_group.update()
         self.sort_sprite_group()
 
+
     def get_biome_name(self):
         x, y = self.get_chunk_position()
         biome = self.map.biome_manager.get_biome(x, y)
@@ -150,32 +149,11 @@ class AppHandler:
         for chunk_coordinates in self.visible_chunks:
             if chunk_coordinates not in previous_chunks:
                 command = ("load", chunk_coordinates)
-                self.position_of_chunk_to_load.append(command)
+                self.chunk_manager.append(command)
         for chunk_coordinates in previous_chunks:
             if chunk_coordinates not in self.visible_chunks:
                 command = ("unload", chunk_coordinates)
-                self.position_of_chunk_to_load.append(command)
-
-    def load_chunk_worker(self):
-        work = None
-        with self.chunk_command_lock:
-            if len(self.position_of_chunk_to_load) > 0:
-                work = self.position_of_chunk_to_load.pop(0)
-        if work is not None:
-            coordinates = work[1]
-            with self.map_lock:
-                if self.map.chunks.get(coordinates) is None:
-                    self.map.load_chunk(coordinates)
-            if work[0] == "load":
-                with self.map_lock:
-                    chunk = self.map.chunks.get(coordinates)
-                independent_chunk = chunk
-                independent_chunk.load_image()
-                with self.map_lock:
-                    self.map.chunks[coordinates] = independent_chunk
-            if work[0] == "unload":
-                with self.map_lock:
-                    self.map.chunks.get(coordinates).unload_image()
+                self.chunk_manager.append(command)
 
     def get_visible_chunks(self):
         """
@@ -225,13 +203,13 @@ class AppHandler:
         self.in_group.draw(self.app.renderer)
 
     def draw_information(self):
-        self_time = time.time()
-
-        active_sprites = normalize_text(str(len(self.in_group)))
+        if self.app.clock.get_fps() < self.min_fps and self.app.clock.get_fps() != 0.0:
+            self.min_fps = self.app.clock.get_fps()
+        min_fps = normalize_text(str(self.min_fps), 4)
         total_tiles = normalize_text(str(self.number_of_loaded_sprites))
         fps = normalize_text(str(self.app.get_fps()))
-        cam_coord = normalize_text(f"x: {self.cam_x} | y: {self.cam_y}", 16)
-        print(f"\ractive_sprites: {active_sprites}; total_tiles: {total_tiles}; fps: {fps}; cam_coord: {cam_coord}",
+        cam_coord = normalize_text(f"x: {self.cam_x} | y: {self.cam_y}", 24)
+        print(f"\rsprites: {total_tiles}; minimum FPS: {min_fps}; fps: {fps}; cam_coord: {cam_coord}; max temp: {normalize_text(str(self.function_timing_result))}",
               end='')
 
 
@@ -254,14 +232,20 @@ class App:
         self.renderer.clear()
         self.app_handler.update()
         self.app_handler.draw()
-        #self.app_handler.draw_hud()
         self.app_handler.draw_information()
-        self.renderer.present()
+        _time = measure_function(self.renderer.present)
+
+
+        if _time > self.app_handler.function_timing_result:
+            self.app_handler.function_timing_result = _time
+
+
 
     def inputs(self):
         self.keybind.clear()
         for event in pg.event.get():
             if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
+                self.app_handler.thread_handler.stop_all()
                 pg.quit()
                 sys.exit()
 
@@ -320,6 +304,49 @@ class App:
 
         image = Image(Texture.from_surface(self.renderer, a))
         return image
+
+
+class ChunkManager:
+    def __init__(self, app_handler):
+        self.app_handler = app_handler
+        self.thread_command_list = {}
+
+    def initialize(self):
+        for i in range(CHUNK_THREAD_NUMBER):
+            self.thread_command_list[i] = []
+            self.app_handler.thread_handler.create(self.load_chunk_worker, i)
+
+    def append(self, command):
+        thread_index = get_thread_index(command[1])
+        self.thread_command_list.get(thread_index).append(command)
+
+    def get_and_remove(self, index):
+        command = self.thread_command_list.get(index).pop(0)
+        return command
+
+    def load_chunk_worker(self, index):
+        work = None
+        if len(self.thread_command_list.get(index)) > 0:
+            work = self.get_and_remove(index)
+        if work is not None:
+            coordinates = work[1]
+            if self.app_handler.map.chunks.get(coordinates) is None:
+                self.app_handler.map.load_chunk(coordinates)
+            if work[0] == "load":
+                chunk = self.app_handler.map.chunks.get(coordinates)
+                chunk.load_image()
+            if work[0] == "unload":
+                self.app_handler.map.chunks.get(coordinates).unload_image()
+        else:
+            pass
+            time.sleep(0.03)
+
+
+def get_thread_index(coordinates):
+    modulo = CHUNK_THREAD_NUMBER
+    coord_sum = sum(coordinates)
+    return coord_sum % modulo
+
 
 if __name__ == '__main__':
     game_app = App()
