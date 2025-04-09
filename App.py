@@ -37,15 +37,16 @@ class BaseSprite:
     def load_on_screen(self):
         if self.image is not None and self.rect is not None:
             if self.entity_x is not None and self.entity_y is not None:
-                self.app_handler.in_group.add_internal(self)
+                with self.app_handler.sprite_lock:
+                    self.app_handler.in_group.add_internal(self)
                 self.in_sprite_list = True
         else:
             raise Exception("Can't load sprite on screen")
 
     def unload_from_screen(self):
         if self.in_sprite_list:
-            #self.app_handler.in_group.remove_internal(self)
-            self.app_handler.in_group.spritedict.pop(self, None)
+            with self.app_handler.sprite_lock:
+                self.app_handler.in_group.spritedict.pop(self, None)
             self.image = None
             self.in_sprite_list = False
 
@@ -58,6 +59,7 @@ class AppHandler:
         self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
         self.map = Map(self)
         self.in_group = pg.sprite.Group()
+        self.sprite_lock = threading.Lock()
         self.pause_group = {}
         self.param_hud = pg.Surface([400, 200])
         self.font = ft.SysFont('Verdana', FONT_SIZE)
@@ -68,9 +70,6 @@ class AppHandler:
 
         self.visible_chunks = []
         self.thread_handler = ThreadHandler()
-
-        self.chunk_manager = ChunkManager(self)
-        self.chunk_manager.initialize()
 
         #dev benchmark
         self.function_timing_result = 0
@@ -113,7 +112,6 @@ class AppHandler:
         self.in_group.update()
         self.sort_sprite_group()
 
-
     def get_biome_name(self):
         x, y = self.get_chunk_position()
         biome = self.map.biome_manager.get_biome(x, y)
@@ -132,10 +130,9 @@ class AppHandler:
         load all the chunks if needed
         uses load_chunks() function.
         """
-        if (self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or
-            self.map.chunks == {}):
-
+        if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or self.map.chunks == {}:
             self.load_chunks()
+
 
     def load_chunks(self):
         """
@@ -148,12 +145,13 @@ class AppHandler:
 
         for chunk_coordinates in self.visible_chunks:
             if chunk_coordinates not in previous_chunks:
-                command = ("load", chunk_coordinates)
-                self.chunk_manager.append(command)
+                command = (chunk_coordinates, "generate")
+                self.map.manager.external_command_list.append(command)
+
         for chunk_coordinates in previous_chunks:
             if chunk_coordinates not in self.visible_chunks:
-                command = ("unload", chunk_coordinates)
-                self.chunk_manager.append(command)
+                command = (chunk_coordinates, "unload")
+                self.map.manager.external_command_list.append(command)
 
     def get_visible_chunks(self):
         """
@@ -235,10 +233,8 @@ class App:
         self.app_handler.draw_information()
         _time = measure_function(self.renderer.present)
 
-
         if _time > self.app_handler.function_timing_result:
             self.app_handler.function_timing_result = _time
-
 
 
     def inputs(self):
@@ -256,7 +252,6 @@ class App:
                 elif event.button == 5:
                     self.keybind['mouse_down'] = True
                     self.keybind['mouse_wheel'] = True
-
 
         keys = pg.key.get_pressed()
         if keys[pg.K_UP]:
@@ -290,56 +285,6 @@ class App:
         while True:
             self.update_screen()
             self.inputs()
-
-    def convert_image(self, image):
-        mode = image.mode
-        size = image.size
-        data = image.tobytes()
-        if mode == "RGBA":
-            a = pg.image.fromstring(data, size, "RGBA")
-        elif mode == "RGB":
-            a = pg.image.fromstring(data, size, "RGB")
-        else:
-            raise ValueError(f"Unsupported image: {mode}")
-
-        image = Image(Texture.from_surface(self.renderer, a))
-        return image
-
-
-class ChunkManager:
-    def __init__(self, app_handler):
-        self.app_handler = app_handler
-        self.thread_command_list = {}
-
-    def initialize(self):
-        for i in range(CHUNK_THREAD_NUMBER):
-            self.thread_command_list[i] = []
-            self.app_handler.thread_handler.create(self.load_chunk_worker, i)
-
-    def append(self, command):
-        thread_index = get_thread_index(command[1])
-        self.thread_command_list.get(thread_index).append(command)
-
-    def get_and_remove(self, index):
-        command = self.thread_command_list.get(index).pop(0)
-        return command
-
-    def load_chunk_worker(self, index):
-        work = None
-        if len(self.thread_command_list.get(index)) > 0:
-            work = self.get_and_remove(index)
-        if work is not None:
-            coordinates = work[1]
-            if self.app_handler.map.chunks.get(coordinates) is None:
-                self.app_handler.map.load_chunk(coordinates)
-            if work[0] == "load":
-                chunk = self.app_handler.map.chunks.get(coordinates)
-                chunk.load_image()
-            if work[0] == "unload":
-                self.app_handler.map.chunks.get(coordinates).unload_image()
-        else:
-            pass
-            time.sleep(0.03)
 
 
 def get_thread_index(coordinates):

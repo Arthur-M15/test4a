@@ -1,13 +1,12 @@
-from doctest import UnexpectedException
-
-from App import BaseSprite
+import threading
 import math
 import pygame.image
+from MapHandler import *
 from pygame import Surface
 from pygame._sdl2 import Image, Texture as TextureSDL2
 
 from common.biomes.BiomeManager import *
-from test_tools import *
+from App import BaseSprite
 
 
 
@@ -23,39 +22,56 @@ class Map:
         self.total_height = height
         self.biome_manager = BiomeManager(self, SEED)
 
+        #Init chunks processing units:
+        self.lock = threading.Lock()
+        self.manager = MapManager(self.app_handler)
+        self.manager.start()
 
     def load_chunk(self, chunk_coordinates):
         x, y = chunk_coordinates
+        with self.lock:
+            if self.chunks.get((x, y)) is None:
+                neighbor_chunk = self.get_neighbor_chunks(chunk_coordinates)
+
+                biome = self.biome_manager.get_biome(x, y)
+                self.chunks[(x, y)] = Chunk(self.app_handler, x, y, biome, neighbor_chunk)
+
+    def get_neighbor_chunks(self, coordinates):
         neighbor_chunk = {}
+        with self.lock:
+            if self.chunks.get(coordinates) is None:
+                x = coordinates[0]
+                y = coordinates[1]
+                # Gathering neighbor chunks information
+                if self.chunks.get((x, y - 1)):
+                    neighbor_chunk["top"] = self.chunks.get((x, y - 1)).get_information()
+                else:
+                    neighbor_chunk["top"] = None
 
-        if self.chunks.get((x, y)) is None:
-            # Gathering neighbor chunks information
-            if self.chunks.get((x, y - 1)):
-                neighbor_chunk["top"] = self.chunks.get((x, y - 1)).get_information()
-            else:
-                neighbor_chunk["top"] = None
+                if self.chunks.get((x, y + 1)):
+                    neighbor_chunk["bottom"] = self.chunks.get((x, y + 1)).get_information()
+                else:
+                    neighbor_chunk["bottom"] = None
 
-            if self.chunks.get((x, y + 1)):
-                neighbor_chunk["bottom"] = self.chunks.get((x, y + 1)).get_information()
-            else:
-                neighbor_chunk["bottom"] = None
+                if self.chunks.get((x - 1, y)):
+                    neighbor_chunk["left"] = self.chunks.get((x - 1, y)).get_information()
+                else:
+                    neighbor_chunk["left"] = None
 
-            if self.chunks.get((x - 1, y)):
-                neighbor_chunk["left"] = self.chunks.get((x - 1, y)).get_information()
-            else:
-                neighbor_chunk["left"] = None
+                if self.chunks.get((x + 1, y)):
+                    neighbor_chunk["right"] = self.chunks.get((x + 1, y)).get_information()
+                else:
+                    neighbor_chunk["right"] = None
+        return neighbor_chunk
 
-            if self.chunks.get((x + 1, y)):
-                neighbor_chunk["right"] = self.chunks.get((x + 1, y)).get_information()
-            else:
-                neighbor_chunk["right"] = None
+    def replace_chunk(self, chunk):
+        with self.lock:
+            coordinates = chunk.chunk_x, chunk.chunk_y
+            self.chunks[coordinates] = chunk
 
-            biome = self.biome_manager.get_biome(x, y)
-            self.chunks[(x, y)] = Chunk(self.app_handler, x, y, biome, neighbor_chunk)
-        else:
-            pass
-
-
+    def get(self, coordinates):
+        with self.lock:
+            return self.chunks.get(coordinates)
 
 class Chunk(BaseSprite):
     def __init__(self, app_handler, x, y, biome, neighbor_chunk):
@@ -71,16 +87,47 @@ class Chunk(BaseSprite):
         self.entity_y = y * CHUNK_WIDTH
 
         self.frontier_biome = None
-        self.get_frontier_biome()
-        self.create(
+        self.__get_frontier_biome()
+        self.__generate_signals(
             neighbor_chunk.get("top"),
             neighbor_chunk.get("bottom"),
             neighbor_chunk.get("left"),
             neighbor_chunk.get("right")
         )
 
+    def unload_image(self):
+        if self.image is not None:
+            self.app_handler.number_of_loaded_sprites -= 0
+        #self.unload_from_screen()
 
-    def get_frontier_biome(self):
+        coordinates = self.chunk_x, self.chunk_y
+        command = (coordinates, "unload")
+        self.app_handler.map.manager.external_command_list.append(command)
+
+    def load_image(self):
+        if self.image is None:
+            self.app_handler.number_of_loaded_sprites += 0
+
+        coordinates = self.chunk_x, self.chunk_y
+        command = (coordinates, "generate")
+        self.app_handler.map.manager.external_command_list.append(command)
+
+        #self.__generate_matrix()
+        #self.load_on_screen()
+
+
+    def export(self):
+        return Chunk(self.app_handler, self.x, self.y, self.biome, self.frontier_biome)
+
+    def get_information(self):
+        """
+        Get all signals of this chunk
+        :return: Dictionary
+        """ # This is used by "self.load_chunks()"
+        info = {key: value for key, value in self.__dict__.items() if key != "tiles"}
+        return info
+
+    def __get_frontier_biome(self):
         left = self.app_handler.map.biome_manager.get_biome(self.chunk_x - 1, self.chunk_y).name == self.biome.next_biome.name
         top_left = self.app_handler.map.biome_manager.get_biome(self.chunk_x - 1, self.chunk_y + 1).name == self.biome.next_biome.name
         top = self.app_handler.map.biome_manager.get_biome(self.chunk_x, self.chunk_y + 1).name == self.biome.next_biome.name
@@ -89,17 +136,7 @@ class Chunk(BaseSprite):
 
         self.frontier_biome =  (left, top_left, top, top_right, right)
 
-
-    def get_information(self):
-        """
-        Get all signals of this chunk
-        :return: Dictionary
-        """
-        info = {key: value for key, value in self.__dict__.items() if key != "tiles"}
-        return info
-
-
-    def create(self, top_chunk, bottom_chunk, left_chunk, right_chunk):
+    def __generate_signals(self, top_chunk, bottom_chunk, left_chunk, right_chunk):
         top_signal = []
         bottom_signal = []
         left_signal = []
@@ -154,7 +191,6 @@ class Chunk(BaseSprite):
             top_end_derivative = None
             bottom_end_derivative = None
 
-
         if not top_signal:
             top_signal = create_curve(top_begin, top_end, top_begin_derivative, top_end_derivative)
         if not bottom_signal:
@@ -164,17 +200,12 @@ class Chunk(BaseSprite):
         if not right_signal:
             right_signal = create_curve(right_begin, right_end, right_begin_derivative, right_end_derivative)
 
-        # TEST
-        if len(top_signal)==0 or len(bottom_signal) ==0 or len(left_signal)==0 or len(right_signal)== 0:
-            pass
-
         self.top_signal = top_signal
         self.bottom_signal = bottom_signal
         self.left_signal = left_signal
         self.right_signal = right_signal
 
-
-    def generate_matrix(self):
+    def __generate_matrix(self):
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
@@ -205,17 +236,6 @@ class Chunk(BaseSprite):
         texture_chunk = TextureSDL2.from_surface(self.app_handler.app.renderer, surf)
         self.image = Image(texture_chunk)
         self.rect = self.image.get_rect()
-
-    def unload_image(self):
-        if self.image is not None:
-            self.app_handler.number_of_loaded_sprites -= 1
-        self.unload_from_screen()
-
-    def load_image(self):
-        if self.image is None:
-            self.app_handler.number_of_loaded_sprites += 1
-        self.generate_matrix()
-        self.load_on_screen()
 
 
 def create_curve(start=None, stop=None, start_derivative=0, stop_derivative=0, variations=1, size = None):
