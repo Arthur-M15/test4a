@@ -41,4 +41,12 @@ TOP_BIOME_Y = -10
 BIOME_OFFSET_HEIGHT = 5
 VARIANTS_NUMBER = 8
 
-CHUNK_THREAD_NUMBER = 8
+CHUNK_THREAD_NUMBER = 2
+
+# -------------- #
+ENVIRONMENT = 11
+# TEST_SERIAL   10    for TEST without threads working in parallel
+# TEST          11
+# BETA          20     for testing the app in real conditions
+# PROD          30
+# -------------- #

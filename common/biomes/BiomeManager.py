@@ -22,7 +22,6 @@ class BiomeManager:
         TopBiome(0, biome_order, self, biome_order[0])
         self.dominance_matrix_index = generate_dominance_matrix_dict(CHUNK_SIZE, VARIANTS_NUMBER)
 
-
     def get_biome(self, x, y):
         number_of_biomes = len(self.biome_directory)
         y_ref = y - TOP_BIOME_Y

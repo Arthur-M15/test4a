@@ -7,7 +7,7 @@ class ClassicBiome(Biome):
     def __init__(self, i, biome_order, manager, name):
         self.main_color = ((130, 80, 50), (10, 150, 30), (0, 100, 0))
 
-        super().__init__(name)
+        super().__init__(name, i)
         next_biome_name = biome_order[i+1]
         if i + 1 >= len(biome_order):
             self.next_biome = None

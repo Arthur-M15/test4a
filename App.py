@@ -1,5 +1,5 @@
 import pygame.mouse
-from ThreadHandler import *
+import threading
 from Map import *
 from test_tools import *
 from pygame._sdl2.video import Texture, Image as Image
@@ -69,12 +69,10 @@ class AppHandler:
         self.cam_speed = BASE_SPEED
 
         self.visible_chunks = []
-        self.thread_handler = ThreadHandler()
 
-        #dev benchmark
+        # dev benchmark
         self.function_timing_result = 0
         self.min_fps = 100000
-
 
     def move(self):
         if 'up' in game_app.keybind:
@@ -92,11 +90,11 @@ class AppHandler:
         if 'mouse_up' in game_app.keybind and self.zoom_scale < 10:
             self.zoom_scale += 1
             self.app.renderer.scale = (self.zoom_scale / 5, self.zoom_scale / 5)
-            self.load_chunks()
+            self.generate_chunks()
         if 'mouse_down' in game_app.keybind and self.zoom_scale > 2:
             self.zoom_scale -= 1
             self.app.renderer.scale = (self.zoom_scale / 5, self.zoom_scale / 5)
-            self.load_chunks()
+            self.generate_chunks()
 
     def timing_function(self, frequency, function, *args, **kwargs):
         if self.tick_divider % frequency == 0:
@@ -109,6 +107,7 @@ class AppHandler:
         self.update_chunk_zone()
         self.move()
         self.interact()
+        self.load_chunks()
         self.in_group.update()
         self.sort_sprite_group()
 
@@ -131,10 +130,10 @@ class AppHandler:
         uses load_chunks() function.
         """
         if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or self.map.chunks == {}:
-            self.load_chunks()
+            self.generate_chunks()
 
 
-    def load_chunks(self):
+    def generate_chunks(self):
         """
         This appends a list of chunks to load or unload.
         The following work is processed by the load_chunk_worker() which is a thread.
@@ -145,13 +144,19 @@ class AppHandler:
 
         for chunk_coordinates in self.visible_chunks:
             if chunk_coordinates not in previous_chunks:
-                command = (chunk_coordinates, "generate")
-                self.map.manager.external_command_list.append(command)
+                if self.map.get(chunk_coordinates) is None:
+                    self.map.load_chunk(chunk_coordinates)
+                self.map.manager.add_command(self.map.get(chunk_coordinates), "generate")
 
         for chunk_coordinates in previous_chunks:
             if chunk_coordinates not in self.visible_chunks:
-                command = (chunk_coordinates, "unload")
-                self.map.manager.external_command_list.append(command)
+                if self.map.get(chunk_coordinates) is None:
+                    self.map.load_chunk(chunk_coordinates)
+                self.map.manager.add_command(self.map.get(chunk_coordinates), "unload")
+
+    def load_chunks(self):
+        for chunk in self.map.manager.flush():
+            self.map.replace_chunk(chunk)
 
     def get_visible_chunks(self):
         """
@@ -207,8 +212,7 @@ class AppHandler:
         total_tiles = normalize_text(str(self.number_of_loaded_sprites))
         fps = normalize_text(str(self.app.get_fps()))
         cam_coord = normalize_text(f"x: {self.cam_x} | y: {self.cam_y}", 24)
-        print(f"\rsprites: {total_tiles}; minimum FPS: {min_fps}; fps: {fps}; cam_coord: {cam_coord}; max temp: {normalize_text(str(self.function_timing_result))}",
-              end='')
+        #print(f"\rsprites: {total_tiles}; minimum FPS: {min_fps}; fps: {fps}; cam_coord: {cam_coord}; max temp: {normalize_text(str(self.function_timing_result))}", end='')
 
 
 class App:
