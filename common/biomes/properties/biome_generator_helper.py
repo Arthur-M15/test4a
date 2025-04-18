@@ -6,7 +6,7 @@ def assets_generator(main_color, next_color, color_variants_number=5):
     """
     Create a double list of images.
     return asset[i][j] with i and j respectively variation index and height index.
-    :param main_color: color of the current biome
+    :param main_color: color of the current
     :param next_color: color of the next biome
     :param color_variants_number: amount of colors variations
     :return:

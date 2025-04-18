@@ -12,6 +12,7 @@ class BiomeManager:
 
         self.biome_offset = BiomeOffsetList(seed)
         self.biome_directory = {}
+        self.tiles_assets = self.fetch_tiles_assets()
 
         biome_order = [
             "TopBiome",
@@ -34,7 +35,11 @@ class BiomeManager:
 
         return self.biome_directory.get(biome_index)
 
-
+    def fetch_tiles_assets(self):
+        assets_list = []
+        for key, assets in self.biome_directory.items():
+            assets_list[key] = assets
+        return assets_list
 
 
 class BiomeOffsetList:

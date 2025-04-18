@@ -92,7 +92,7 @@ class CommandProcess(multiprocessing.Process):
 
 
 def generate_chunk_image(top_signal, bottom_signal, left_signal, right_signal, dominance_matrix, assets, biome_index, coordinates):
-    x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
+    """x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
     y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
     matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
     size = CHUNK_SIZE * TILE_SIZE + TILE_SIZE / 4
@@ -113,7 +113,8 @@ def generate_chunk_image(top_signal, bottom_signal, left_signal, right_signal, d
     if coordinates == (0, 0):
         corner = pg.image.load("corner.png")
         surf.blit(corner, (0, 0))
-    return surf, matrix
+    return surf, matrix"""
+    pass
 
 
 class Command:

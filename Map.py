@@ -1,8 +1,5 @@
 import math
-import pygame.image
-from MapHandler2 import *
-from pygame import Surface
-from pygame._sdl2 import Image, Texture as TextureSDL2
+from MapHandler3 import *
 
 from common.biomes.BiomeManager import *
 from App import BaseSprite
@@ -19,15 +16,12 @@ class Map:
 
         #normalized offset is on height=100
         self.total_height = height
-        self.biome_manager = BiomeManager(self, SEED)
-        self.manager = MapManager(self.biome_manager.biome_directory)
+        self.biome_manager = BiomeManager(self, SEED) # assets, frontiers_shape_list, app_handler
+        self.manager = MapManager(self.biome_manager.tiles_assets, self.biome_manager.dominance_matrix_index, self.app_handler)
 
         #Init chunks processing units:
         self.lock = threading.Lock()
-        if ENVIRONMENT == 10:
-            self.manager.run()
-        else:
-            self.manager.start()
+        self.manager.start()
 
     def load_chunk(self, chunk_coordinates):
         x, y = chunk_coordinates
@@ -69,7 +63,8 @@ class Map:
             coordinates = chunk.chunk_x, chunk.chunk_y
             self.chunks[coordinates].unload_from_screen()
             self.chunks[coordinates] = chunk
-            self.chunks[coordinates].load_on_screen()
+            if chunk.image is not None:
+                self.chunks[coordinates].load_on_screen()
 
     def get(self, coordinates):
         with self.lock:
@@ -98,23 +93,6 @@ class Chunk(BaseSprite):
             neighbor_chunk.get("right")
         )
 
-    def unload_image(self):
-        if self.image is not None:
-            self.app_handler.number_of_loaded_sprites -= 0
-        #self.unload_from_screen()
-
-        coordinates = self.chunk_x, self.chunk_y
-        command = (coordinates, "unload")
-        self.app_handler.map.manager.external_command_list.append(command)
-
-    def load_image(self):
-        if self.image is None:
-            self.app_handler.number_of_loaded_sprites += 0
-
-        coordinates = self.chunk_x, self.chunk_y
-        command = (coordinates, "generate")
-        self.app_handler.map.manager.external_command_list.append(command)
-
     def get_information(self):
         """
         Get all signals of this chunk
@@ -133,7 +111,7 @@ class Chunk(BaseSprite):
         top_right = self.app_handler.map.biome_manager.get_biome(self.chunk_x + 1, self.chunk_y + 1).name == self.biome.next_biome.name
         right = self.app_handler.map.biome_manager.get_biome(self.chunk_x + 1, self.chunk_y).name == self.biome.next_biome.name
 
-        self.frontier_biome =  (left, top_left, top, top_right, right)
+        self.frontier_biome =  biome_generator_helper.get_dominance_matrix_name((left, top_left, top, top_right, right))
 
     def __generate_signals(self, top_chunk, bottom_chunk, left_chunk, right_chunk):
         top_signal = []

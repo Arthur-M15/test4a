@@ -8,6 +8,5 @@ class BottomBiome(Biome):
         self.next_biome = self
 
         super().__init__(name, i)
-        renderer = manager.map.app_handler.app.renderer
         self.assets = assets_generator(self.main_color, end_color, self.variants_number)
         manager.biome_directory[i] = self

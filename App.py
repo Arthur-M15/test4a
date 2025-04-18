@@ -107,7 +107,6 @@ class AppHandler:
         self.update_chunk_zone()
         self.move()
         self.interact()
-        self.load_chunks()
         self.in_group.update()
         self.sort_sprite_group()
 
@@ -153,10 +152,6 @@ class AppHandler:
                 if self.map.get(chunk_coordinates) is None:
                     self.map.load_chunk(chunk_coordinates)
                 self.map.manager.add_command(self.map.get(chunk_coordinates), "unload")
-
-    def load_chunks(self):
-        for chunk in self.map.manager.flush():
-            self.map.replace_chunk(chunk)
 
     def get_visible_chunks(self):
         """

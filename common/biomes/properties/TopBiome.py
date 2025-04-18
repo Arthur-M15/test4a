@@ -16,6 +16,5 @@ class TopBiome(Biome):
             self.next_biome = pre_instance(i + 1, biome_order, manager, next_biome_name)
         manager.biome_directory[i] = self
 
-        renderer = manager.map.app_handler.app.renderer
         self.assets = assets_generator(self.main_color, self.next_biome.main_color, self.variants_number)
 
