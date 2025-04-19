@@ -82,7 +82,7 @@ def tile_generator(rgb, scale_factor=20, additional_pixel=None):
     image = image.rotate(45, expand=True, resample=imagePIL.NEAREST)
     image = auto_crop_left(image)
     image = auto_crop_right(image)
-    #image.save("C:/Users/Arthur/PycharmProjects/test4a/name.png")
+    image.save("C:/Users/Arthur/PycharmProjects/test4a/name.png")
 
     return image, pil_to_surface(image)
 

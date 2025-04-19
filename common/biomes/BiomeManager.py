@@ -12,7 +12,6 @@ class BiomeManager:
 
         self.biome_offset = BiomeOffsetList(seed)
         self.biome_directory = {}
-        self.tiles_assets = self.fetch_tiles_assets()
 
         biome_order = [
             "TopBiome",
@@ -22,6 +21,7 @@ class BiomeManager:
         ]
         TopBiome(0, biome_order, self, biome_order[0])
         self.dominance_matrix_index = generate_dominance_matrix_dict(CHUNK_SIZE, VARIANTS_NUMBER)
+        self.tiles_assets = self.fetch_tiles_assets()
 
     def get_biome(self, x, y):
         number_of_biomes = len(self.biome_directory)
@@ -36,9 +36,9 @@ class BiomeManager:
         return self.biome_directory.get(biome_index)
 
     def fetch_tiles_assets(self):
-        assets_list = []
-        for key, assets in self.biome_directory.items():
-            assets_list[key] = assets
+        assets_list = {}
+        for biome in self.biome_directory.values():
+            assets_list[biome.name] = biome.assets
         return assets_list
 
 

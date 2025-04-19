@@ -27,6 +27,8 @@ class BaseSprite:
         """
         if self.in_sprite_list:
             self.set_position_on_screen()
+            if self.rect is None:
+                pass
             self.rect.center = self.x, self.y
 
     def set_position_on_screen(self):
@@ -45,10 +47,10 @@ class BaseSprite:
 
     def unload_from_screen(self):
         if self.in_sprite_list:
+            self.in_sprite_list = False
             with self.app_handler.sprite_lock:
                 self.app_handler.in_group.spritedict.pop(self, None)
             self.image = None
-            self.in_sprite_list = False
 
 
 class AppHandler:
@@ -145,13 +147,13 @@ class AppHandler:
             if chunk_coordinates not in previous_chunks:
                 if self.map.get(chunk_coordinates) is None:
                     self.map.load_chunk(chunk_coordinates)
-                self.map.manager.add_command(self.map.get(chunk_coordinates), "generate")
+                self.map.manager.add(self.map.get(chunk_coordinates), "generate")
 
         for chunk_coordinates in previous_chunks:
             if chunk_coordinates not in self.visible_chunks:
                 if self.map.get(chunk_coordinates) is None:
                     self.map.load_chunk(chunk_coordinates)
-                self.map.manager.add_command(self.map.get(chunk_coordinates), "unload")
+                self.map.manager.add(self.map.get(chunk_coordinates), "unload")
 
     def get_visible_chunks(self):
         """
@@ -207,8 +209,11 @@ class AppHandler:
         total_tiles = normalize_text(str(self.number_of_loaded_sprites))
         fps = normalize_text(str(self.app.get_fps()))
         cam_coord = normalize_text(f"x: {self.cam_x} | y: {self.cam_y}", 24)
-        #print(f"\rsprites: {total_tiles}; minimum FPS: {min_fps}; fps: {fps}; cam_coord: {cam_coord}; max temp: {normalize_text(str(self.function_timing_result))}", end='')
+        test_timer = self.map.manager.test_timer
+        #print(f"\rsprites: {total_tiles}; minimum FPS: {min_fps}; fps: {fps}; cam_coord: {cam_coord}; max temp: {normalize_text(str(self.function_timing_result))}; text_timer: {test_timer}", end='')
 
+    def stop_all_threads(self):
+        self.map.manager.stop()
 
 class App:
     def __init__(self):
@@ -240,7 +245,7 @@ class App:
         self.keybind.clear()
         for event in pg.event.get():
             if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
-                self.app_handler.thread_handler.stop_all()
+                self.app_handler.stop_all_threads()
                 pg.quit()
                 sys.exit()
 

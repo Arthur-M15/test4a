@@ -1,7 +1,8 @@
 import threading
 import multiprocessing
 import queue
-from pygame import Surface
+import time
+
 from common.biomes.BiomeManager import *
 import pygame
 from PIL import Image as PILImage
@@ -14,21 +15,21 @@ class MapManager(threading.Thread):
     def __init__(self, assets, frontiers_shape_list, app_handler):
         super().__init__()
         self.renderer = app_handler.app.renderer
-        self.map = app_handler.map
         self.assets = assets
         self.frontiers_shape_list = frontiers_shape_list
         self.processes = []
         self.daemon = True
         self.is_running = False
+        self.test_timer = 0.0
 
         #Input of the manager:
         self.queue = queue.Queue()
         self.input_command_list = CommandList3()
 
         #Interface with the processes:
-        self.__manager = multiprocessing.Manager()
-        self.task_list = [self.__manager.list() for _ in range(CHUNK_THREAD_NUMBER)]
-        self.result_list = [self.__manager.list() for _ in range(CHUNK_THREAD_NUMBER)]
+        #self.__manager = multiprocessing.Manager()
+        self.task_list = [multiprocessing.Queue() for _ in range(CHUNK_THREAD_NUMBER)]
+        self.result_list = [multiprocessing.Queue() for _ in range(CHUNK_THREAD_NUMBER)]
 
     def run(self):
         self.is_running = True
@@ -54,32 +55,38 @@ class MapManager(threading.Thread):
             command_id = self.input_command_list.add(raw_command[0], raw_command[1])
             command = self.input_command_list[command_id]
             process_id = command.process_id
-            self.task_list[process_id].add(command.unwrap())
+            self.task_list[process_id].put(command.unwrap())
 
     def collect_results(self):
         for result_stack in self.result_list:
-            while not result_stack.empty():
-                unwrapped = result_stack.get()
-                command_id = unwrapped.command_id
-                command = self.input_command_list.pop(command_id)
-                if command.task == "generate":
-                    if unwrapped.image and unwrapped.tiles is not None:
-                        pil_image = unwrapped.pil_image
-                        sdl_image = self.pil_to_sdl2(pil_image)
-                        rect = sdl_image.get_rect()
-                        tiles = unwrapped.tiles
-                        command.chunk.image = sdl_image
-                        command.chunk.tiles = tiles
-                        command.chunk.rect = rect
-                        command.chunk.load_on_screen()
+            try:
+                while True:
+                    unwrapped = result_stack.get_nowait()
+                    print(f"process time: {unwrapped.process_time}")
+                    command_id = unwrapped.command_id
+                    command = self.input_command_list.pop(command_id)
+                    if command.task == "generate":
+                        t = time.time()
+                        if unwrapped.pil_image and unwrapped.tiles is not None:
+                            pil_image = unwrapped.pil_image
+                            sdl_image = self.pil_to_sdl2(pil_image)
+                            rect = sdl_image.get_rect()
+                            tiles = unwrapped.tiles
+                            command.chunk.image = sdl_image
+                            command.chunk.tiles = tiles
+                            command.chunk.rect = rect
+                            command.chunk.load_on_screen()
+                        else:
+                            self.stop()
+                            raise Exception("No image or tiles after generation")
+                        self.test_timer = time.time() - t
                     else:
-                        self.stop()
-                        raise Exception("No image or tiles after generation")
-                else:
-                    command.chunk.image = None
-                    command.chunk.tiles = None
-                    command.chunk.rect = None
-                #self.map.replace_chunk(command.chunk)
+                        command.chunk.unload_from_screen()
+                        command.chunk.image = None
+                        command.chunk.tiles = None
+                        command.chunk.rect = None
+            except queue.Empty:
+                continue
 
     def pil_to_sdl2(self, canvas):
         size = canvas.size
@@ -96,7 +103,8 @@ class CommandList3:
 
     def add(self, chunk, task):
         if len(self.input_command_list) == 0:
-            self.command_id = 0
+            #self.command_id = 0
+            pass
         self.input_command_list[self.command_id] = Command(self.command_id, chunk, task)
         self.command_id += 1
         return self.command_id - 1
@@ -139,6 +147,7 @@ class UnwrappedCommand:
         self.biome_name = biome_name
         self.pil_image = None
         self.tiles = None
+        self.process_time = 0
 
 
 class Process(multiprocessing.Process):
@@ -148,7 +157,9 @@ class Process(multiprocessing.Process):
         self.task_list = task_list
         self.result_list = result_list
         self.assets = assets
+        self.daemon = True
         self.frontiers_shape_list = frontiers_shape_list
+        self.start()
 
     def run(self):
         self.is_running = True
@@ -157,24 +168,28 @@ class Process(multiprocessing.Process):
 
     def stop(self):
         self.is_running = False
-        self.join()
+        print("process stopped")
 
     def collect_tasks(self):
-        while not self.task_list.empty():
-            unwrapped = self.task_list.get()
+        try:
+            unwrapped = self.task_list.get(timeout=0.01)
+            t = time.time()
             if unwrapped.task == "generate":
                 image, tiles = self.generate_image(unwrapped.signals, unwrapped.frontier_shape, unwrapped.biome_name)
                 unwrapped.pil_image = image
                 unwrapped.tiles = tiles
-            self.result_list.append(unwrapped)
+            unwrapped.process_time = time.time() - t
+            self.result_list.put(unwrapped)
+        except queue.Empty:
+            time.sleep(0.01)
 
     def generate_image(self, signals, frontier_shape_name, biome_name):
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
 
-        size = CHUNK_SIZE * TILE_SIZE + TILE_SIZE / 4
-        canvas = PILImage.new("RGBA", (size, size), (0, 0, 0, 255))
+        size = int(CHUNK_SIZE * TILE_SIZE + TILE_SIZE / 4)
+        canvas = PILImage.new("RGBA", (size, size), (0, 0, 0, 0))
 
         dominance_matrix = self.frontiers_shape_list[frontier_shape_name]
 
@@ -192,6 +207,6 @@ class Process(multiprocessing.Process):
                 variant = dominance_matrix[i][j]
                 height_index = get_height_index(matrix[i][j], VARIANTS_NUMBER, TILE_HEIGHT_SATURATION)
                 pil_image = self.assets.get(biome_name)[variant][height_index]
-                canvas.paste(pil_image, (i * TILE_SIZE, j * TILE_SIZE))
+                canvas.paste(pil_image, (i * TILE_SIZE, j * TILE_SIZE), mask=pil_image)
 
         return canvas, matrix
