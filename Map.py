@@ -19,17 +19,14 @@ class Map:
         self.biome_manager = BiomeManager(self, SEED) # assets, frontiers_shape_list, app_handler
         self.manager = MapManager(self.biome_manager.tiles_assets, self.biome_manager.dominance_matrix_index, self.app_handler)
 
-        #Init chunks processing units:
-        self.lock = threading.Lock()
-        self.manager.start()
 
-    def load_chunk(self, chunk_coordinates):
+    """def load_chunk(self, chunk_coordinates):
         x, y = chunk_coordinates
         with self.lock:
             if self.chunks.get((x, y)) is None:
                 neighbor_chunk = self.get_neighbor_chunks(chunk_coordinates)
                 biome = self.biome_manager.get_biome(x, y)
-                self.chunks[(x, y)] = Chunk(self.app_handler, x, y, biome, neighbor_chunk)
+                self.chunks[(x, y)] = Chunk(self.app_handler, x, y, biome, neighbor_chunk)"""
 
     def get_neighbor_chunks(self, coordinates):
         neighbor_chunk = {}
@@ -58,17 +55,22 @@ class Map:
                 neighbor_chunk["right"] = None
         return neighbor_chunk
 
-    def replace_chunk(self, chunk):
+    """def replace_chunk(self, chunk):
         with self.lock:
             coordinates = chunk.chunk_x, chunk.chunk_y
             self.chunks[coordinates].unload_from_screen()
             self.chunks[coordinates] = chunk
             if chunk.image is not None:
-                self.chunks[coordinates].load_on_screen()
+                self.chunks[coordinates].load_on_screen()"""
 
     def get(self, coordinates):
-        with self.lock:
-            return self.chunks.get(coordinates)
+        return self.chunks.get(coordinates)
+
+    def set(self, coordinates):
+        x, y = coordinates
+        biome = self.biome_manager.get_biome(x, y)
+        neighbor_chunk = self.get_neighbor_chunks(coordinates)
+        self.chunks[coordinates] = Chunk(self.app_handler, x, y, biome, neighbor_chunk)
 
 
 class Chunk(BaseSprite):
