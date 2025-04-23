@@ -1,4 +1,5 @@
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Pipe
+import queue
 import threading
 import time
 
@@ -68,8 +69,8 @@ class MapManager:
 class ProcessManager(threading.Thread):
     def __init__(self, assets, frontier_biome_list, command_list):
         super().__init__(daemon=True)
-        self.wrap_list = Queue()
-        self.result_list = Queue()
+        self.wrap_list = Pipe()
+        self.result_list = Pipe()
         self.command_list = command_list
         self.process_list = [Unit(i, self.wrap_list, self.result_list, assets, frontier_biome_list) for i in range(CHUNK_THREAD_NUMBER)]
         self.is_running = True
@@ -89,15 +90,24 @@ class ProcessManager(threading.Thread):
         return True
 
     def collect_results(self):
-        t = time.time()
-        result = self.result_list.get()
+        """result = self.result_list.get()
         result.timestamp.append(("ProcessManager: collect_results2", time.time()))
         c_id = result.c_id
         command = self.command_list.get(c_id)
         command.wrap = result
         command.is_completed = True
         command.wrap.timestamp.append(("ProcessManager: collect_results3", time.time()))
-        #print(f"Time: {time.time() - t}")
+"""
+        try:
+            result = self.result_list.get_nowait()
+            result.timestamp.append(("ProcessManager: collect_results2", time.time()))
+            c_id = result.c_id
+            command = self.command_list.get(c_id)
+            command.wrap = result
+            command.is_completed = True
+            command.wrap.timestamp.append(("ProcessManager: collect_results3", time.time()))
+        except Pipe.Empty:
+            time.sleep(0.1)
 
 
 class Unit(Process):
@@ -112,11 +122,15 @@ class Unit(Process):
 
     def run(self):
         while self.is_running:
-            t = time.time()
-            wrap = self.wrap_list.get()
+            try:
+                wrap = self.wrap_list.get_nowait()
+                wrap.timestamp.append(("Unit: run", time.time()))
+                self.__execute_task(wrap)
+            except Pipe.Empty:
+                time.sleep(0.1)
+            """wrap = self.wrap_list.get()
             wrap.timestamp.append(("Unit: run", time.time()))
-            self.__execute_task(wrap)
-            #print(f"Time: {time.time() - t}")
+            self.__execute_task(wrap)"""
 
     def __execute_task(self, wrap):
         t =time.time()
