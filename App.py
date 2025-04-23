@@ -109,6 +109,7 @@ class AppHandler:
         self.update_chunk_zone()
         self.move()
         self.interact()
+        self.map.manager.update()
         self.in_group.update()
         self.sort_sprite_group()
 
@@ -130,7 +131,7 @@ class AppHandler:
         load all the chunks if needed
         uses load_chunks() function.
         """
-        if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or self.map.chunks == {}:
+        if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or len(self.map) == 0:
             self.generate_chunks()
 
 
@@ -145,15 +146,11 @@ class AppHandler:
 
         for chunk_coordinates in self.visible_chunks:
             if chunk_coordinates not in previous_chunks:
-                if self.map.get(chunk_coordinates) is None:
-                    self.map.load_chunk(chunk_coordinates)
-                self.map.manager.add(self.map.get(chunk_coordinates), "generate")
+                self.map.manager.load_chunk(chunk_coordinates)
 
         for chunk_coordinates in previous_chunks:
             if chunk_coordinates not in self.visible_chunks:
-                if self.map.get(chunk_coordinates) is None:
-                    self.map.load_chunk(chunk_coordinates)
-                self.map.manager.add(self.map.get(chunk_coordinates), "unload")
+                self.map.manager.unload_chunk(chunk_coordinates)
 
     def get_visible_chunks(self):
         """
@@ -209,7 +206,7 @@ class AppHandler:
         total_tiles = normalize_text(str(self.number_of_loaded_sprites))
         fps = normalize_text(str(self.app.get_fps()))
         cam_coord = normalize_text(f"x: {self.cam_x} | y: {self.cam_y}", 24)
-        test_timer = self.map.manager.test_timer
+        test_timer = ""#self.map.manager.test_timer
         #print(f"\rsprites: {total_tiles}; minimum FPS: {min_fps}; fps: {fps}; cam_coord: {cam_coord}; max temp: {normalize_text(str(self.function_timing_result))}; text_timer: {test_timer}", end='')
 
     def stop_all_threads(self):

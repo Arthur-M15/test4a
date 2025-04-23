@@ -1,5 +1,5 @@
 import math
-from MapHandler3 import *
+from MapHandler5 import *
 
 from common.biomes.BiomeManager import *
 from App import BaseSprite
@@ -10,81 +10,68 @@ from App import BaseSprite
 class Map:
     def __init__(self, app_handler, seed=0, height=100):
         self.app_handler = app_handler
-        self.chunks = {}
+        self.__chunks = {}
         self.entities = []
         self.seed = seed
 
         #normalized offset is on height=100
         self.total_height = height
         self.biome_manager = BiomeManager(self, SEED) # assets, frontiers_shape_list, app_handler
-        self.manager = MapManager(self.biome_manager.tiles_assets, self.biome_manager.dominance_matrix_index, self.app_handler)
-
-
-    """def load_chunk(self, chunk_coordinates):
-        x, y = chunk_coordinates
-        with self.lock:
-            if self.chunks.get((x, y)) is None:
-                neighbor_chunk = self.get_neighbor_chunks(chunk_coordinates)
-                biome = self.biome_manager.get_biome(x, y)
-                self.chunks[(x, y)] = Chunk(self.app_handler, x, y, biome, neighbor_chunk)"""
+        self.manager = MapManager(self)
 
     def get_neighbor_chunks(self, coordinates):
         neighbor_chunk = {}
-        if self.chunks.get(coordinates) is None:
+        if self.__chunks.get(coordinates) is None:
             x = coordinates[0]
             y = coordinates[1]
             # Gathering neighbor chunks information
-            if self.chunks.get((x, y - 1)):
-                neighbor_chunk["top"] = self.chunks.get((x, y - 1)).get_information()
+            if self.__chunks.get((x, y - 1)):
+                neighbor_chunk["top"] = self.__chunks.get((x, y - 1)).get_information()
             else:
                 neighbor_chunk["top"] = None
 
-            if self.chunks.get((x, y + 1)):
-                neighbor_chunk["bottom"] = self.chunks.get((x, y + 1)).get_information()
+            if self.__chunks.get((x, y + 1)):
+                neighbor_chunk["bottom"] = self.__chunks.get((x, y + 1)).get_information()
             else:
                 neighbor_chunk["bottom"] = None
 
-            if self.chunks.get((x - 1, y)):
-                neighbor_chunk["left"] = self.chunks.get((x - 1, y)).get_information()
+            if self.__chunks.get((x - 1, y)):
+                neighbor_chunk["left"] = self.__chunks.get((x - 1, y)).get_information()
             else:
                 neighbor_chunk["left"] = None
 
-            if self.chunks.get((x + 1, y)):
-                neighbor_chunk["right"] = self.chunks.get((x + 1, y)).get_information()
+            if self.__chunks.get((x + 1, y)):
+                neighbor_chunk["right"] = self.__chunks.get((x + 1, y)).get_information()
             else:
                 neighbor_chunk["right"] = None
         return neighbor_chunk
 
-    """def replace_chunk(self, chunk):
-        with self.lock:
-            coordinates = chunk.chunk_x, chunk.chunk_y
-            self.chunks[coordinates].unload_from_screen()
-            self.chunks[coordinates] = chunk
-            if chunk.image is not None:
-                self.chunks[coordinates].load_on_screen()"""
+    def get_chunk(self, coordinates):
+        self.set_chunk(coordinates)
+        return self.__chunks.get(coordinates)
 
-    def get(self, coordinates):
-        return self.chunks.get(coordinates)
+    def set_chunk(self, coordinates):
+        if self.__chunks.get(coordinates) is None:
+            x, y = coordinates
+            biome = self.biome_manager.get_biome(x, y)
+            neighbor_chunks = self.get_neighbor_chunks(coordinates)
+            self.__chunks[coordinates] = Chunk(self.app_handler, coordinates, biome, neighbor_chunks)
 
-    def set(self, coordinates):
-        x, y = coordinates
-        biome = self.biome_manager.get_biome(x, y)
-        neighbor_chunk = self.get_neighbor_chunks(coordinates)
-        self.chunks[coordinates] = Chunk(self.app_handler, x, y, biome, neighbor_chunk)
+    def __len__(self):
+        return len(self.__chunks)
 
 
 class Chunk(BaseSprite):
-    def __init__(self, app_handler, x, y, biome, neighbor_chunk):
+    def __init__(self, app_handler, coordinates, biome, neighbor_chunk):
         super().__init__(app_handler)
         self.app_handler = app_handler
         self.variation = CHUNK_VARIATIONS
         self.tiles = []
         self.top_signal, self.bottom_signal, self.left_signal, self.right_signal = None, None, None, None
         self.biome = biome
-        self.chunk_x = x
-        self.chunk_y = y
-        self.entity_x = x * CHUNK_WIDTH
-        self.entity_y = y * CHUNK_WIDTH
+        self.chunk_x, self.chunk_y = coordinates
+        self.entity_x = self.chunk_x * CHUNK_WIDTH
+        self.entity_y = self.chunk_y * CHUNK_WIDTH
 
         self.frontier_biome = None
         self.__get_frontier_biome()

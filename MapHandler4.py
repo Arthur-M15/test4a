@@ -1,41 +1,55 @@
 import multiprocessing
-import queue
 import threading
 import time
+
 from Settings import *
 from collections import deque
 from PIL import Image as PILImage
-from common.biomes.properties.biome_generator_helper import get_height_index
+from common.biomes.properties.biome_generator_helper import get_height_index, pil_to_sdl2
 
 
 class MapManager:
-    def __init__(self, app_handler):
+    def __init__(self, parent_map):
         super().__init__()
-        self.__map = app_handler.map
-        self.__renderer = app_handler.app.renderer
-        self.__app_handler = app_handler
+        self.__map = parent_map
+        self.__app_handler = parent_map.app_handler
 
         self.__command_counter = 0
         self.__command_list = {}
-        self.__command_waiting_list = []
 
         assets = self.__map.biome_manager.tiles_assets
         frontier_biome = self.__map.biome_manager.dominance_matrix_index
         self.__process_manager = ProcessManager(assets, frontier_biome)
 
     def load(self, coordinates):
-        pass # todo: create or load the chunk. The pass the chunk to the __add_command()
+        self.__process_chunk(coordinates, "generate")
 
     def unload(self, coordinates):
-        pass # todo: create or load the chunk. The pass the chunk to the __add_command()
+        self.__process_chunk(coordinates, "unload")
 
     def update(self):
-        pass #todo
+        wrap_list = self.__process_manager.get_results()
+        for wrap in wrap_list:
+            c_id = wrap.c_id
+            command = self.__command_list.pop(c_id)
+            command.wrap = wrap
+            if command.task == "generate":
+                command.merge_wrap()
+                command.chunk.load_on_screen()
+            else:
+                command.chunk.unload_from_screen()
 
-    def __add_command(self, chunk, task):
-        c_id = self.__get_id()
-        self.__command_list[c_id] = Command(chunk, task, c_id)
-        self.__command_waiting_list.append(self.__command_list[c_id].wrap)
+    """def __collect_results(self):
+        
+        return processed_list"""
+
+    def __process_chunk(self, coordinates, task):
+        chunk = self.__map.get_chunk(coordinates)
+        command_id = self.__get_id()
+        command = Command(chunk, task, command_id)
+        wrap = command.wrap
+        self.__command_list[command_id] = command
+        self.__process_manager.add(wrap)
 
     def __get_id(self):
         if len(self.__command_list) == 0:
@@ -49,86 +63,103 @@ class MapManager:
         return self.__app_handler.biome_manager.dominance_matrix_index
 
 
-
 class ProcessManager(threading.Thread):
     def __init__(self, assets, frontier_biome_list):
         super().__init__()
-        self.command_list = SharedList()
+        self.wrap_list = SharedList()
         self.result_list = SharedList()
-        self.process_list = [Process(i, assets, frontier_biome_list, self.result_list) for i in range(CHUNK_THREAD_NUMBER)]
+        self.process_list = [Process(i, assets, frontier_biome_list, self.result_list, multiprocessing.Value(False)) for i in range(CHUNK_THREAD_NUMBER)]
+        #self.process_list = {i: ProcessUnit(Process(i, assets, frontier_biome_list, self.result_list)) for i in range(CHUNK_THREAD_NUMBER)}
         self.daemon = True
         self.is_running = False
+        self.start()
 
     def run(self):
+        #[unit.process.start() for unit in self.process_list.values()]
         [process.start() for process in self.process_list]
+        time.sleep(CHUNK_THREAD_NUMBER*0.5)
         self.is_running = True
         while self.is_running:
             self.__send_to_process()
 
-    def add(self, command):
-        self.command_list.append(command)
+    def add(self, wrap):
+        self.wrap_list.add_item(wrap)
 
     def get_results(self):
         return self.result_list.flush()
 
     def __get_process_id(self):
         for process in self.process_list:
-            if process.notify_command():
+            if not process.is_loaded:
                 return process.id
-        return 0
-
+        return -1
 
     def __send_to_process(self):
-        while len(self.command_list) > 0:
+        while len(self.wrap_list) > 0:
             command_id = self.__get_process_id()
-            if command_id != 0:
-                command_id -= 1
-                command = self.command_list.pop()
-                self.process_list[command_id].inject_data(command)
-                self.process_list[command_id].command = command
+            if command_id != -1:
+                wrap = self.wrap_list.pop_item()
+                self.process_list[command_id].notify_process(wrap)
+                pass
+                #self.process_list.get(command_id).process.notify_process(wrap)
             else:
                 time.sleep(0.1)
 
 
 class Process(multiprocessing.Process):
-    def __init__(self, p_id, assets, frontier_biome_list, result_list):
+    def __init__(self, p_id, assets, frontier_biome_list, result_list, is_loaded):
         super().__init__()
         self.id = p_id
         self.assets = assets
         self.frontier_biome_list = frontier_biome_list
 
-        self.command = None
         self.result_list = result_list
-        self.is_ready = False
-        self.is_processing = False
         self.is_running = False
+
+        self.wrap = None
+        self.is_loaded = is_loaded
+        self.command_id = 0
         self.lock = multiprocessing.Lock()
+
+    def run2(self):
+        while self.is_running:
+            pass
+
 
     def run(self):
         self.is_running = True
-        self.is_ready = True
         while self.is_running:
-            if not self.is_processing and self.command is not None:
-                self.__execute_task()
+            t = time.time()
+            if self.is_loaded:
+                print("bbbbbbbbbb")
+            with self.lock:
+                if self.is_loaded:
+                    print('yeeeeees !')
+                    self.__execute_task()
+                    self.is_loaded = False
+            delta = time.time() - t
+            if 0.020 - delta > 0.0:
+                time.sleep(0.020 - delta)
 
-    def notify_command(self):
+    def notify_process(self, wrap):
         with self.lock:
-            flag = self.is_ready
-            self.is_ready = False
-            return flag
-
-    def inject_data(self, command):
-        self.command = command
-        self.is_processing = True
+            self.wrap = wrap
+            self.is_loaded = True
+            print("cccccc")
 
     def __execute_task(self):
-        self.is_processing = True
-        command = self.command
-        result = self.__generate_image(command.signals, command.frontier_biome, command.biome_name)
-        self.result_list.append(result)
-        self.is_processing = False
-        self.command = None
-        self.is_ready = True
+        try:
+            wrap = self.wrap
+            print("aaaaaa")
+            if wrap.task == "generate":
+                result = self.__generate_image(wrap.signals, wrap.frontier_biome, wrap.biome_name)
+                wrap.pil_image = result[0]
+                wrap.tiles = result[1]
+            self.result_list.add_item(wrap)
+        except Exception as e:
+            print(e)
+        finally:
+            self.wrap = None
 
 
     def __generate_image(self, signals, frontier_biome, biome_name):
@@ -165,12 +196,13 @@ class SharedList:
         self.lock = multiprocessing.Lock()
         self.shared_list = deque()
 
-    def append(self, item):
+    def add_item(self, item):
         with self.lock:
             self.shared_list.append(item)
 
-    def pop(self):
+    def pop_item(self):
         with self.lock:
+            print("pop")
             return self.shared_list.popleft()
 
     def flush(self):
@@ -195,6 +227,18 @@ class Command:
         biome_name = self.chunk.biome.name
         self.wrap = Wrap(c_id, signals, task, frontier_biome, biome_name)
 
+    def merge_wrap(self):
+        if self.wrap.pil_image is not None and self.wrap.tiles is not None:
+            renderer = self.chunk.app_handler.app.renderer
+            sdl_image = pil_to_sdl2(renderer, self.wrap.pil_image)
+            rect = sdl_image.get_rect()
+            tiles = self.wrap.tiles
+            self.chunk.tiles = tiles
+            self.chunk.image = sdl_image
+            self.chunk.rect = rect
+        else:
+            raise Exception("no image to merge")
+
 
 class Wrap:
     def __init__(self, c_id, signals, task, frontier_biome, biome_name):
@@ -207,5 +251,4 @@ class Wrap:
         self.pil_image = None
         self.tiles = None
         self.timestamp = time.time()
-
 

@@ -1,4 +1,5 @@
 from PIL import Image as imagePIL
+from pygame._sdl2 import Texture as TextureSDL2
 import numpy as np
 import pygame as pg
 
@@ -102,6 +103,13 @@ def pil_to_surface(new_image):
         return pg.image.fromstring(data, size, "RGB")
     else:
         raise ValueError(f"Unsupported image mode: {mode}")
+
+def pil_to_sdl2(renderer, canvas):
+    size = canvas.size
+    data = canvas.tobytes()
+    surface = pg.image.fromstring(data, size, "RGBA")
+    texture_chunk = TextureSDL2.from_surface(renderer, surface)
+    return texture_chunk
 
 def auto_crop_left(image):
     pixels = image.load()

@@ -183,7 +183,7 @@ class Process(multiprocessing.Process):
         except queue.Empty:
             time.sleep(0.01)
 
-    def generate_image(self, signals, frontier_shape_name, biome_name):
+    """def generate_image(self, signals, frontier_shape_name, biome_name):
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
@@ -209,4 +209,4 @@ class Process(multiprocessing.Process):
                 pil_image = self.assets.get(biome_name)[variant][height_index]
                 canvas.paste(pil_image, (i * TILE_SIZE, j * TILE_SIZE), mask=pil_image)
 
-        return canvas, matrix
+        return canvas, matrix"""
