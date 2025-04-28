@@ -163,6 +163,7 @@ class Process(multiprocessing.Process):
 
 
     def __generate_image(self, signals, frontier_biome, biome_name):
+        return
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]

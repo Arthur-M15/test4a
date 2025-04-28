@@ -2,6 +2,7 @@ from multiprocessing import Process, Queue
 import threading
 import time
 import queue
+from collections import deque
 
 from Settings import *
 from PIL import Image as PILImage
@@ -19,6 +20,9 @@ class MapManager:
         assets = self.__get_assets()
         frontier_biome = self.__get_dominance_matrix()
         self.process_manager = ProcessManager(assets, frontier_biome, self.command_list)
+
+    def stop(self):
+        self.process_manager.stop()
 
     def load_chunk(self, coordinates):
         self.__process_chunk(coordinates, "generate")
@@ -38,20 +42,16 @@ class MapManager:
                 command.chunk.load_on_screen()
             else:
                 command.chunk.unload_from_screen()
-            #print(f"TOTAL: {[command.wrap.timestamp[i][1] - command.wrap.timestamp[0][1] for i in range(len(command.wrap.timestamp))]}")
-            print([f"{command.wrap.timestamp[i][0]}: {command.wrap.timestamp[i][1] - command.wrap.timestamp[0][1]}" for i in range(len(command.wrap.timestamp))])
+            #print([f"{command.wrap.timestamp[i][0]}: {command.wrap.timestamp[i][1] - command.wrap.timestamp[0][1]}" for i in range(len(command.wrap.timestamp))])
             self.command_list.pop(c_id)
 
     def __process_chunk(self, coordinates, task):
-        t = time.time()
         chunk = self.map.get_chunk(coordinates)
         command_id = self.__get_id()
         command = Command(chunk, task, command_id)
         self.command_list[command_id] = command
         command.wrap.timestamp.append(("MapManager: __process_chunk", time.time()))
         self.process_manager.insert_command(command)
-        #print(f"Time: {time.time() - t}")
-        pass
 
     def __get_id(self):
         if len(self.command_list) == 0:
@@ -75,19 +75,30 @@ class ProcessManager(threading.Thread):
         self.process_list = [Unit(i, self.wrap_list, self.result_list, assets, frontier_biome_list) for i in range(CHUNK_THREAD_NUMBER)]
         self.is_running = True
         self.start()
+        self.timestamp = 0
+        self.time_interval = 0.1
+        self.input_queue = deque()
+        self.lock = threading.Lock()
 
     def run(self):
         [process.start() for process in self.process_list]
         while self.is_running:
             self.collect_results()
 
+    def stop(self):
+        self.is_running = False
+        [process.stop() for process in self.process_list]
+
     def insert_command(self, command):
-        t = time.time()
         wrap = command.wrap
         self.wrap_list.put(wrap)
         wrap.timestamp.append(("ProcessManager: insert_command", time.time()))
-        #print(f"Time: {time.time() - t}")
-        return True
+
+
+        """wrap = command.wrap
+        self.wrap_list.put(wrap)
+        wrap.timestamp.append(("ProcessManager: insert_command", time.time()))
+        return True"""
 
     def collect_results(self):
         """result = self.result_list.get()
@@ -107,7 +118,7 @@ class ProcessManager(threading.Thread):
             command.is_completed = True
             command.wrap.timestamp.append(("ProcessManager: collect_results3", time.time()))
         except queue.Empty:
-            time.sleep(0.1)
+            time.sleep(0.01)
 
 
 class Unit(Process):
@@ -127,13 +138,15 @@ class Unit(Process):
                 wrap.timestamp.append(("Unit: run", time.time()))
                 self.__execute_task(wrap)
             except queue.Empty:
-                time.sleep(0.1)
+                time.sleep(0.01)
             """wrap = self.wrap_list.get()
             wrap.timestamp.append(("Unit: run", time.time()))
             self.__execute_task(wrap)"""
 
+    def stop(self):
+        self.is_running = False
+
     def __execute_task(self, wrap):
-        t =time.time()
         if wrap.task == "generate":
             result = self.__generate_image(wrap.signals, wrap.frontier_biome, wrap.biome_name)
             wrap.pil_image = result[0]
@@ -141,7 +154,6 @@ class Unit(Process):
         wrap.processed_by = self.id
         wrap.timestamp.append(("Unit: __execute_task", time.time()))
         self.result_list.put(wrap)
-        #print(f"Time: {time.time() - t}")
 
     def __generate_image(self, signals, frontier_biome, biome_name):
         x_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
@@ -162,7 +174,7 @@ class Unit(Process):
             for j in range(CHUNK_SIZE):
                 x_matrix[i][j] = top_s[i] - ((j / CHUNK_SIZE) * (top_s[i]) - bottom_s[i])
                 y_matrix[i][j] = left_s[j] - ((i / CHUNK_SIZE) * (left_s[j]) - right_s[j])
-                matrix[i][j] = (x_matrix[i][j] + y_matrix[j][i]) / 2 # noqa
+                matrix[i][j] = (x_matrix[i][j] + y_matrix[i][j]) / 2 # noqa
 
                 variant = dominance_matrix[i][j]
                 height_index = get_height_index(matrix[i][j], VARIANTS_NUMBER, TILE_HEIGHT_SATURATION)

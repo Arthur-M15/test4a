@@ -167,14 +167,28 @@ class AppHandler:
 
         chunk_offset_x = (WIN_W - TOTAL_WIDTH + CHUNK_WIDTH)//(CHUNK_WIDTH * 2)
         chunk_offset_y = (WIN_H - TOTAL_WIDTH + CHUNK_WIDTH)//(CHUNK_WIDTH * 2)
-
+#TODO : refaire le système de zoom avec l'offset de ses morts
+        chunk_x = self.chunk_position[0]
+        chunk_y = self.chunk_position[1]
+        LOAD_MARGIN = 1
+        CHUNK_X_ON_SCREEN = (WIN_W + CHUNK_WIDTH - 1) // CHUNK_WIDTH
+        CHUNK_Y_ON_SCREEN = (WIN_H + CHUNK_WIDTH - 1) // CHUNK_WIDTH
+        X_OFFSET = chunk_offset_x
+        Y_OFFSET = chunk_offset_y
         return [
+            (i, j)
+            for i in range(chunk_x - LOAD_MARGIN - X_OFFSET - scale, chunk_x + CHUNK_X_ON_SCREEN + LOAD_MARGIN - X_OFFSET + scale)
+            for j in range(chunk_y - LOAD_MARGIN - Y_OFFSET - scale, chunk_y + CHUNK_Y_ON_SCREEN + LOAD_MARGIN - Y_OFFSET + scale)
+        ]
+
+
+        """return [
             (i, j)
             for i in range(self.chunk_position[0] - chunk_offset_x - 1 - scale,
                            1 + self.chunk_position[0] + max_chunks_width - chunk_offset_x + 1 + scale)
             for j in range(self.chunk_position[1] - chunk_offset_y - 1 - scale,
                            1 + self.chunk_position[1] + max_chunks_height - chunk_offset_y + 1 + scale)
-        ]
+        ]"""
 
     def get_chunk_position(self, position=None):
         """
@@ -207,7 +221,7 @@ class AppHandler:
         fps = normalize_text(str(self.app.get_fps()))
         cam_coord = normalize_text(f"x: {self.cam_x} | y: {self.cam_y}", 24)
         test_timer = ""#self.map.manager.test_timer
-        #print(f"\rsprites: {total_tiles}; minimum FPS: {min_fps}; fps: {fps}; cam_coord: {cam_coord}; max temp: {normalize_text(str(self.function_timing_result))}; text_timer: {test_timer}", end='')
+        print(f"\rsprites: {total_tiles}; minimum FPS: {min_fps}; fps: {fps}; cam_coord: {cam_coord}; max temp: {normalize_text(str(self.function_timing_result))}; text_timer: {test_timer}", end='')
 
     def stop_all_threads(self):
         self.map.manager.stop()
