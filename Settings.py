@@ -44,9 +44,18 @@ VARIANTS_NUMBER = 8
 CHUNK_THREAD_NUMBER = 1
 
 # -------------- #
-ENVIRONMENT = 11
+ENVIRONMENT = 12
+# TEST tilesgen 12
 # TEST_SERIAL   10    for TEST without threads working in parallel
 # TEST          11
 # BETA          20     for testing the app in real conditions
 # PROD          30
 # -------------- #
+
+if ENVIRONMENT == 12:
+    TILE_SIZE = 10
+    CHUNK_SIZE = 25
+    VARIANTS_NUMBER = 12
+    TOTAL_WIDTH = CHUNK_SIZE * TILE_SIZE * CHUNK_LOAD_DISTANCE
+    CHUNK_WIDTH = CHUNK_SIZE * TILE_SIZE
+    CHUNK_LOAD_DISTANCE = 2

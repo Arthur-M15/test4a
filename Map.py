@@ -10,7 +10,7 @@ from App import BaseSprite
 class Map:
     def __init__(self, app_handler, seed=0, height=100):
         self.app_handler = app_handler
-        self.__chunks = {}
+        self.chunks = {}
         self.entities = []
         self.seed = seed
 
@@ -21,44 +21,44 @@ class Map:
 
     def get_neighbor_chunks(self, coordinates):
         neighbor_chunk = {}
-        if self.__chunks.get(coordinates) is None:
+        if self.chunks.get(coordinates) is None:
             x = coordinates[0]
             y = coordinates[1]
             # Gathering neighbor chunks information
-            if self.__chunks.get((x, y - 1)):
-                neighbor_chunk["top"] = self.__chunks.get((x, y - 1)).get_information()
+            if self.chunks.get((x, y - 1)):
+                neighbor_chunk["top"] = self.chunks.get((x, y - 1)).get_information()
             else:
                 neighbor_chunk["top"] = None
 
-            if self.__chunks.get((x, y + 1)):
-                neighbor_chunk["bottom"] = self.__chunks.get((x, y + 1)).get_information()
+            if self.chunks.get((x, y + 1)):
+                neighbor_chunk["bottom"] = self.chunks.get((x, y + 1)).get_information()
             else:
                 neighbor_chunk["bottom"] = None
 
-            if self.__chunks.get((x - 1, y)):
-                neighbor_chunk["left"] = self.__chunks.get((x - 1, y)).get_information()
+            if self.chunks.get((x - 1, y)):
+                neighbor_chunk["left"] = self.chunks.get((x - 1, y)).get_information()
             else:
                 neighbor_chunk["left"] = None
 
-            if self.__chunks.get((x + 1, y)):
-                neighbor_chunk["right"] = self.__chunks.get((x + 1, y)).get_information()
+            if self.chunks.get((x + 1, y)):
+                neighbor_chunk["right"] = self.chunks.get((x + 1, y)).get_information()
             else:
                 neighbor_chunk["right"] = None
         return neighbor_chunk
 
     def get_chunk(self, coordinates):
         self.set_chunk(coordinates)
-        return self.__chunks.get(coordinates)
+        return self.chunks.get(coordinates)
 
     def set_chunk(self, coordinates):
-        if self.__chunks.get(coordinates) is None:
+        if self.chunks.get(coordinates) is None:
             x, y = coordinates
             biome = self.biome_manager.get_biome(x, y)
             neighbor_chunks = self.get_neighbor_chunks(coordinates)
-            self.__chunks[coordinates] = Chunk(self.app_handler, coordinates, biome, neighbor_chunks)
+            self.chunks[coordinates] = Chunk(self.app_handler, coordinates, biome, neighbor_chunks)
 
     def __len__(self):
-        return len(self.__chunks)
+        return len(self.chunks)
 
 
 class Chunk(BaseSprite):
