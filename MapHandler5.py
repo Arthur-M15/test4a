@@ -172,8 +172,8 @@ class Unit(Process):
 
         for i in range(CHUNK_SIZE):
             for j in range(CHUNK_SIZE):
-                x_matrix[i][j] = top_s[i] - ((j / CHUNK_SIZE) * (top_s[i]) - bottom_s[i])
-                y_matrix[i][j] = left_s[j] - ((i / CHUNK_SIZE) * (left_s[j]) - right_s[j])
+                x_matrix[i][j] = top_s[i] - ((j / CHUNK_SIZE) * (top_s[i] - bottom_s[i]))
+                y_matrix[i][j] = left_s[j] - ((i / CHUNK_SIZE) * (left_s[j] - right_s[j]))
                 matrix[i][j] = (x_matrix[i][j] + y_matrix[i][j]) / 2 # noqa
 
                 variant = dominance_matrix[i][j]

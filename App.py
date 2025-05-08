@@ -5,8 +5,86 @@ from test_tools import *
 from pygame._sdl2.video import Texture, Image as Image
 
 
+class BaseSprite2:
+    def __init__(self, app_handler, rect, group):
+        self.app_handler = AppHandler2() # app_handler
+        self.image = None
+        self.rect = rect
+        self.entity_x, self.entity_y = 0, 0
+        self.x, self.y = 0, 0
+        self.in_sprite_list = False
+        self.group = group
+
+    def update(self):
+        """ Update the image on the screen, not the object. """
+        if self.in_sprite_list:
+            self.update_position()
+
+    def update_position(self):
+        screen_x, screen_y =  self.app_handler.screen_x, self.app_handler.screen_y
+        self.x, self.y = self.entity_x - screen_x, self.entity_y - screen_y
+        self.rect.center = self.x, self.y
+
+    def load_on_screen(self):
+        if self.image is not None and self.rect is not None:
+            if self.entity_x is not None and self.entity_y is not None:
+                self.app_handler.in_group.add_internal(self)
+                self.in_sprite_list = True
+        else:
+            raise Exception("Can't load sprite on screen")
+
+    def unload_from_screen(self):
+        if self.in_sprite_list:
+            self.in_sprite_list = False
+            self.app_handler.in_group.spritedict.pop(self, None)
+            self.image = None
+
+
+class ChunkGroup(BaseSprite2):
+    def __init__(self, app_handler, rect):
+        group = app_handler.chunk_group
+        super().__init__(app_handler, rect, group)
+
+
+class EntityGroup(BaseSprite2):
+    def __init__(self, app_handler, rect):
+        group = app_handler.entity_group
+        super().__init__(app_handler, rect, group)
+
+
+class AppHandler2:
+    def __init__(self):
+        self.coord_x, self.coord_y = 0, 0
+        self.width, self.height = WIN_W, WIN_H
+        self.zoom = 1
+        self.screen_x, self.screen_y = 0, 0
+        self.margin = 50
+        self.detection_range = 1000
+        self.detection_x_start = self.coord_x - self.detection_range
+        self.detection_y_start = self.coord_y - self.detection_range
+        self.detection_x_end = self.coord_x + self.detection_range
+        self.detection_y_end = self.coord_y + self.detection_range
+
+    def set_screen_position(self):
+        self.screen_x = self.coord_x - self.width / 2
+        self.screen_y = self.coord_y - self.height / 2
+
+    def set_screen_size(self, zoom):
+        self.zoom = zoom
+        self.width, self.height = self.width // self.zoom, self.height // self.zoom
+
+    def zoom_in(self):
+        self.set_screen_size(self.zoom + 0.1)
+
+    def zoom_out(self):
+        if self.zoom > 0.4:
+            self.set_screen_size(self.zoom - 0.1)
+
+
+
+
 class BaseSprite:
-    def __init__(self, app_handler):
+    def __init__(self, app_handler, rect):
         """
         :param app_handler: The handler of the game
         :param self.x: Relative x position of the object on the window
@@ -14,7 +92,7 @@ class BaseSprite:
         """
         self.app_handler = app_handler
         self.image = None
-        self.rect = None
+        self.rect = rect
         self.entity_x, self.entity_y = 0, 0
         self.x, self.y = 0, 0
         self.offset_x, self.offset_y = 0, 0
@@ -27,8 +105,6 @@ class BaseSprite:
         """
         if self.in_sprite_list:
             self.set_position_on_screen()
-            if self.rect is None:
-                pass
             self.rect.center = self.x, self.y
 
     def set_position_on_screen(self):
@@ -52,6 +128,7 @@ class BaseSprite:
                 self.app_handler.in_group.spritedict.pop(self, None)
             self.image = None
 
+#todo : remplacer le apphandler, basesrpite et le systeme d'apparition des sprites
 
 class AppHandler:
     def __init__(self, app):
@@ -134,7 +211,6 @@ class AppHandler:
         if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or len(self.map) == 0:
             self.generate_chunks()
 
-
     def generate_chunks(self):
         """
         This appends a list of chunks to load or unload.
@@ -175,11 +251,12 @@ class AppHandler:
         CHUNK_Y_ON_SCREEN = (WIN_H + CHUNK_WIDTH - 1) // CHUNK_WIDTH
         X_OFFSET = chunk_offset_x
         Y_OFFSET = chunk_offset_y
-        return [
+        """return [
             (i, j)
             for i in range(chunk_x - LOAD_MARGIN - X_OFFSET - scale, chunk_x + CHUNK_X_ON_SCREEN + LOAD_MARGIN - X_OFFSET + scale)
             for j in range(chunk_y - LOAD_MARGIN - Y_OFFSET - scale, chunk_y + CHUNK_Y_ON_SCREEN + LOAD_MARGIN - Y_OFFSET + scale)
-        ]
+        ]"""
+        return [(8,8),(8,9),(9,8),(9,9)]
 
 
         """return [

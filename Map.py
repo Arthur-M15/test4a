@@ -63,7 +63,7 @@ class Map:
 
 class Chunk(BaseSprite):
     def __init__(self, app_handler, coordinates, biome, neighbor_chunk):
-        super().__init__(app_handler)
+        super().__init__(app_handler, app_handler.map.biome_manager.chunk_rect_size)
         self.app_handler = app_handler
         self.variation = CHUNK_VARIATIONS
         self.tiles = []
