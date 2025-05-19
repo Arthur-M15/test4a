@@ -82,7 +82,9 @@ class AppHandler2:
         self.visible_chunks = []
 
         # Graphics:
-        self.chunk_group = pg.sprite.Group()
+        self.group_list = [
+            pg.sprite.Group()
+        ]
         """ todo later:
         self.floor_group = pg.sprite.Group()
         self.object_group = pg.sprite.Group()
@@ -91,8 +93,7 @@ class AppHandler2:
         self.sprite_lock = threading.Lock()
 
         # Tests:
-        self.min_fps = 9999
-        self.number_of_loaded_sprites = 0
+        self.logger = AppInformation(self)
 
     def set_screen_position(self):
         self.screen_x = self.coord_x - self.width / 2
@@ -162,33 +163,31 @@ class AppHandler2:
         if 'mouse_down' in game_app.keybind:
             self.zoom_out()
 
-    def sort_sprite_group(self, group):
-        if group.spritedict:
-            sorted_in_group_x = {sprite: value for sprite, value in sorted(group.spritedict.items(),
-                                                                           key=lambda item: item[0].x)}
-            sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(),
-                                                                         key=lambda item: item[0].y)}
-            group.spritedict = sorted_in_group
+    def sort_sprite_group(self):
+        for group in self.group_list:
+            if group.spritedict:
+                sorted_in_group_x = {sprite: value for sprite, value in sorted(group.spritedict.items(),
+                                                                               key=lambda item: item[0].x)}
+                sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(),
+                                                                             key=lambda item: item[0].y)}
+                group.spritedict = sorted_in_group
 
     def update(self):
-        pass
+        self.interact()
+        self.sort_sprite_group()
+        self.draw()
+        self.draw_information()
 
     def draw(self):
         # Draw only the visible group
-        self.chunk_group.draw(self.app.renderer)
+        for group in self.group_list:
+            group.draw(self.app.renderer)
 
     def get_coordinates(self):
         return self.coord_x, self.coord_y
 
     def draw_information(self):
-        if self.app.clock.get_fps() < self.min_fps and self.app.clock.get_fps() != 0.0:
-            self.min_fps = self.app.clock.get_fps()
-        min_fps = normalize_text(str(self.min_fps), 4)
-        total_tiles = normalize_text(str(self.number_of_loaded_sprites))
-        fps = normalize_text(str(self.app.get_fps()))
-        cam_coord = normalize_text(f"x: {self.coord_x} | y: {self.coord_y}", 24)
-        test_timer = ""#self.map.manager.test_timer
-        print(f"\rsprites: {total_tiles}; minimum FPS: {min_fps}; fps: {fps}; cam_coord: {cam_coord}; max temp: {normalize_text(str(self.function_timing_result))}; text_timer: {test_timer}", end='')
+        self.logger.print_info()
 
     def stop_all_threads(self):
         self.map.manager.stop()
@@ -211,8 +210,7 @@ class AppInformation:
 
     def update_sprite_count(self):
         total = 0
-        group_list = (g_list for name, g_list in self.app_handler.items() if "group" in name)
-        for group in group_list:
+        for group in self.app_handler.group_list:
             total += len(group)
         self.sprite_count = total
 
@@ -221,6 +219,7 @@ class AppInformation:
         self.update_sprite_count()
 
     def print_info(self, tiles = True, fps = True, minimum_fps = True, coordinates = True):
+        self.update_information()
         info_list = []
         if tiles:
             info_list.append(f"Tiles count: {normalize_text(self.total_tiles)}; ")
