@@ -23,7 +23,7 @@ class BiomeManager:
         self.dominance_matrix_index = generate_dominance_matrix_dict(CHUNK_SIZE, VARIANTS_NUMBER)
         self.tiles_assets = self.fetch_tiles_assets()
         tile_sample = next(iter(self.tiles_assets.values()))
-        self.chunk_rect_size = CHUNK_SIZE * (TILE_SIZE - 1) + tile_sample[0][0].size[0]
+        self.chunk_rect_size = CHUNK_SIZE * (TILE_PIXEL_SIZE - 1) + tile_sample[0][0].size[0]
 
     def get_biome(self, x, y):
         number_of_biomes = len(self.biome_directory)

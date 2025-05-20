@@ -2,7 +2,7 @@ import math
 from MapHandler5 import *
 
 from common.biomes.BiomeManager import *
-from App import BaseSprite
+from App import ChunkGroup
 
 
 
@@ -61,17 +61,18 @@ class Map:
         return len(self.chunks)
 
 
-class Chunk(BaseSprite):
+class Chunk(ChunkGroup):
     def __init__(self, app_handler, coordinates, biome, neighbor_chunk):
-        super().__init__(app_handler, app_handler.map.biome_manager.chunk_rect_size)
+        size = app_handler.map.biome_manager.chunk_rect_size
+        super().__init__(app_handler, (size, size))
         self.app_handler = app_handler
         self.variation = CHUNK_VARIATIONS
         self.tiles = []
         self.top_signal, self.bottom_signal, self.left_signal, self.right_signal = None, None, None, None
         self.biome = biome
         self.chunk_x, self.chunk_y = coordinates
-        self.entity_x = self.chunk_x * CHUNK_WIDTH
-        self.entity_y = self.chunk_y * CHUNK_WIDTH
+        self.entity_x = self.chunk_x * CHUNK_PIXEL_WIDTH
+        self.entity_y = self.chunk_y * CHUNK_PIXEL_WIDTH
 
         self.frontier_biome = None
         self.__get_frontier_biome()

@@ -88,7 +88,7 @@ def tile_generator(rgb, scale_factor=20, additional_pixel=None):
     image.save("C:/Users/Arthur/PycharmProjects/test4a/name.png")
 
     if Settings.ENVIRONMENT == 12:
-        image = imagePIL.new("RGBA", (Settings.TILE_SIZE, Settings.TILE_SIZE), rgb)
+        image = imagePIL.new("RGBA", (Settings.TILE_PIXEL_SIZE, Settings.TILE_PIXEL_SIZE), rgb)
 
     return image, pil_to_surface(image)
 

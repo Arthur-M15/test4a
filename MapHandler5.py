@@ -160,7 +160,7 @@ class Unit(Process):
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
 
-        size = int(CHUNK_SIZE * TILE_SIZE + TILE_SIZE / 4)
+        size = int(CHUNK_SIZE * TILE_PIXEL_SIZE + TILE_PIXEL_SIZE / 4)
         canvas = PILImage.new("RGBA", (size, size), (0, 0, 0, 0))
 
         dominance_matrix = self.frontier_biome_list[frontier_biome]
@@ -179,7 +179,7 @@ class Unit(Process):
                 variant = dominance_matrix[i][j]
                 height_index = get_height_index(matrix[i][j], VARIANTS_NUMBER, TILE_HEIGHT_SATURATION)
                 pil_image = self.assets.get(biome_name)[variant][height_index]
-                canvas.paste(pil_image, (i * TILE_SIZE, j * TILE_SIZE), mask=pil_image)
+                canvas.paste(pil_image, (i * TILE_PIXEL_SIZE, j * TILE_PIXEL_SIZE), mask=pil_image)
 
         return canvas, matrix
 
