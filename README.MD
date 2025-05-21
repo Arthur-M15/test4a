@@ -6,8 +6,8 @@ This project is an experimental game, which intends to lean new algorithms and w
 
 - [Purpose of this project](#Purpose-of-this-project)
 - [How to make this work ?](#How-to-make-this-work-)
-- [Credits](#Credits)
 - [What's next ?](#Whats-next-)
+- [Credits](#Credits)
 
 
 ## Purpose of this project
