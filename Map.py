@@ -1,5 +1,5 @@
 import math
-from MapHandler5 import *
+from MapHandler import *
 
 from common.biomes.BiomeManager import *
 from App import ChunkGroup
