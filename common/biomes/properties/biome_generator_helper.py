@@ -1,13 +1,14 @@
-from PIL import Image
+from PIL import Image as imagePIL
+from pygame._sdl2 import Texture as TextureSDL2
 import numpy as np
-from pygame._sdl2.video import Texture, Image as Pyimage
 import pygame as pg
+import Settings
 
-def assets_generator(main_color, next_color, renderer, color_variants_number=5):
+def assets_generator(main_color, next_color, color_variants_number=5):
     """
     Create a double list of images.
     return asset[i][j] with i and j respectively variation index and height index.
-    :param main_color: color of the current biome
+    :param main_color: color of the current
     :param next_color: color of the next biome
     :param color_variants_number: amount of colors variations
     :return:
@@ -48,11 +49,8 @@ def assets_generator(main_color, next_color, renderer, color_variants_number=5):
 
     assets = []
     for i, rgb_list in enumerate(rgb_matrix.values()):
-        assets.append([tile_generator(rgb, renderer)[1] for rgb in rgb_list])
-        if False:
-            for j, rgb in enumerate(rgb_list):
-                a = tile_generator(rgb, renderer)[0]
-                tile_generator(rgb, renderer)[0].save(f"C:/Users/Arthur/PycharmProjects/test4a/test/{str(hash(main_color))}-{i}{j}.png")
+        # [0] -> PIL ; [1] -> pg.Image
+        assets.append([tile_generator(rgb)[0] for rgb in rgb_list])
     return assets
 
 
@@ -69,45 +67,54 @@ def sum_colors(color1, color2, second_dominance):
     return new_color
 
 
-def tile_generator(rgb, renderer, scale_factor=20, additional_pixel=None):
+def tile_generator(rgb, scale_factor=20, additional_pixel=None):
     size = (4, 5)
-    image = Image.new("RGBA", size, rgb)
+    image = imagePIL.new("RGBA", size, rgb)
     alpha_color = (0, 0, 0, 0)
     pixels = image.load()
     pixels[0, 0] = alpha_color
     pixels[3, 0] = alpha_color
+
 
     if additional_pixel:
         image = add_pixel_list(image, additional_pixel)
 
     image = image.convert("RGBA")
     enlarged_size = (size[0] * scale_factor, size[1] * scale_factor)
-    image = image.resize(enlarged_size, Image.NEAREST)
-    image = image.rotate(45, expand=True, resample=Image.NEAREST)
+    image = image.resize(enlarged_size, imagePIL.NEAREST)
+    image = image.rotate(45, expand=True, resample=imagePIL.NEAREST)
     image = auto_crop_left(image)
     image = auto_crop_right(image)
-    #image.save("C:/Users/Arthur/PycharmProjects/test4a/name.png")
+    image.save("C:/Users/Arthur/PycharmProjects/test4a/name.png")
 
-    return image, pil_to_pygame(image, renderer)
+    if Settings.ENVIRONMENT == 12:
+        image = imagePIL.new("RGBA", (Settings.TILE_PIXEL_SIZE, Settings.TILE_PIXEL_SIZE), rgb)
 
-def pil_to_pygame(new_image, renderer):
+    return image, pil_to_surface(image)
 
+def pil_to_surface(new_image):
     """
-    Convertit une image Pillow (PIL.Image) en Surface Pygame compatible.
+    converts a PIL image into a pygame surface.
+    :param new_image:
+    :return:
     """
     mode = new_image.mode
     size = new_image.size
     data = new_image.tobytes()
 
-    # Vérification du mode pour s'assurer qu'il est compatible avec Pygame
     if mode == "RGBA":
-        new_image = pg.image.fromstring(data, size, "RGBA")
+        return pg.image.fromstring(data, size, "RGBA")
     elif mode == "RGB":
-        new_image = pg.image.fromstring(data, size, "RGB")
+        return pg.image.fromstring(data, size, "RGB")
     else:
         raise ValueError(f"Unsupported image mode: {mode}")
-    return Pyimage(Texture.from_surface(renderer, new_image))
 
+def pil_to_sdl2(renderer, canvas):
+    size = canvas.size
+    data = canvas.tobytes()
+    surface = pg.image.fromstring(data, size, "RGBA")
+    texture_chunk = TextureSDL2.from_surface(renderer, surface)
+    return texture_chunk
 
 def auto_crop_left(image):
     pixels = image.load()
@@ -244,8 +251,6 @@ def simple_dominance_matrix(chunk_size, shape):
 
     else:
         raise Exception("Invalid shape")
-    for line in matrix:
-        print(line)
     return matrix
 
 
@@ -266,6 +271,13 @@ def merge_matrix(matrix1, matrix2, size):
     return new_matrix
 
 def get_height_index(height, variation_number, max_height=3):
+    """
+    Change the real height of the tile into the index of tile chosen in the asset list.
+    :param height: height of the tile.
+    :param variation_number: amount of assets for this biome.
+    :param max_height: maximum height affected to the last asset.
+    :return:
+    """
     medium = max_height / 2
     normalized_height = height + medium
     unit_size = max_height/variation_number
@@ -276,3 +288,18 @@ def get_height_index(height, variation_number, max_height=3):
         return variation_number - 1
     else:
         return index
+
+def convert_assets_to_surface(assets):
+    new_assets = {}
+    for i in range(len(assets)):
+        key = list(assets.keys())[i]
+        pil_variants = assets[key]
+        variant_list = []
+        for variant in pil_variants.assets:
+            image_list = []
+            for image in variant:
+                new_image = pil_to_surface(image)
+                image_list.append(new_image)
+            variant_list.append(image_list)
+        new_assets[key] = variant_list
+    return new_assets

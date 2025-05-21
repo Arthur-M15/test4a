@@ -4,13 +4,6 @@ from Settings import *
 from common.biomes.properties import *
 from common.biomes.properties.biome_generator_helper import *
 
-class Tile:
-    def __init__(self, app_handler, x, y, image):
-        self.app_handler = app_handler
-        self.x, self.y = x, y
-        self.max_size = TILE_SIZE
-        self.image = image
-
 
 class BiomeManager:
     def __init__(self, map, seed):
@@ -28,7 +21,9 @@ class BiomeManager:
         ]
         TopBiome(0, biome_order, self, biome_order[0])
         self.dominance_matrix_index = generate_dominance_matrix_dict(CHUNK_SIZE, VARIANTS_NUMBER)
-
+        self.tiles_assets = self.fetch_tiles_assets()
+        tile_sample = next(iter(self.tiles_assets.values()))
+        self.chunk_rect_size = CHUNK_SIZE * (TILE_PIXEL_SIZE - 1) + tile_sample[0][0].size[0]
 
     def get_biome(self, x, y):
         number_of_biomes = len(self.biome_directory)
@@ -42,7 +37,11 @@ class BiomeManager:
 
         return self.biome_directory.get(biome_index)
 
-
+    def fetch_tiles_assets(self):
+        assets_list = {}
+        for biome in self.biome_directory.values():
+            assets_list[biome.name] = biome.assets
+        return assets_list
 
 
 class BiomeOffsetList:
