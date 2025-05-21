@@ -1,8 +1,6 @@
 import pygame.mouse
-import threading
 from Map import *
 from test_tools import *
-from pygame._sdl2.video import Texture, Image as Image
 
 
 class BaseSprite2:
@@ -10,8 +8,9 @@ class BaseSprite2:
         self.app_handler = app_handler
         self.image = None
         self.rect = None
-        self.entity_x, self.entity_y = 0, 0
+        self.entity_x, self.entity_y = 0.0, 0.0
         self.x, self.y = 0, 0
+        self.intern_zoom_index = None
         self.width, self.height = size
         self.in_sprite_list = False
         if group_name is None:
@@ -26,9 +25,14 @@ class BaseSprite2:
         if self.in_sprite_list:
             self.update_position()
 
+    def get_zoom_offset(self):
+        off_x = (WIN_W - self.app_handler.width) // 2
+        off_y = (WIN_H - self.app_handler.height) // 2
+        return off_x, off_y
+
     def update_position(self):
         screen_x, screen_y =  self.app_handler.screen_x_start, self.app_handler.screen_y_start
-        self.x, self.y = self.entity_x - screen_x, self.entity_y - screen_y
+        self.x, self.y = int(self.entity_x) - screen_x, int(self.entity_y) - screen_y
         self.rect.center = self.x, self.y
 
     def load_on_screen(self):
@@ -67,15 +71,16 @@ class AppHandler2:
         self.last_coord_x, self.last_coord_y = 0, 0
         self.width, self.height = WIN_W, WIN_H
         self.zoom_index = 0
+        self.zoom_factor = 1
         self.screen_x_start, self.screen_y_start = 0, 0
         self.screen_x_end, self.screen_y_end = 0, 0
-        self.margin = 50
-        self.detection_range = 1000
+        self.margin = 100
+        self.detection_range = 10000
         self.detection_x_start = self.coord_x - self.detection_range
         self.detection_y_start = self.coord_y - self.detection_range
         self.detection_x_end = self.coord_x + self.detection_range
         self.detection_y_end = self.coord_y + self.detection_range
-        self.cam_speed = 1.0
+        self.cam_speed = 5
         self.cam_x_retenue = 0.0
         self.cam_y_retenue = 0.0
 
@@ -85,6 +90,7 @@ class AppHandler2:
         self.detectable_chunks = []
         # create its sprite when in visible zone:
         self.visible_chunks = []
+
 
         # Graphics:
         self.group_list = {
@@ -101,19 +107,28 @@ class AppHandler2:
         # Tests:
         self.logger = AppInformation(self)
 
+        test_size = 20
+        self.central_sprite = BaseSprite2(self, "default", (test_size, test_size))
+        pil_image = PILImage.new("RGBA", (test_size, test_size), (50, 50, 50, 50))
+        self.central_sprite.image = pil_to_sdl2(self.app.renderer, pil_image)
+        self.central_sprite.rect = self.central_sprite.image.get_rect()
+        self.central_sprite.load_on_screen()
+
     def set_screen_size(self):
-        zoom = self.get_zoom()
-        self.width, self.height = int(WIN_W * zoom), int(WIN_H * zoom)
-        self.app.renderer.scale = (zoom, zoom)
+        self.zoom_factor = self.get_zoom()
+        self.width, self.height = int(WIN_W // self.zoom_factor), int(WIN_H // self.zoom_factor)
+        self.app.renderer.scale = (self.zoom_factor, self.zoom_factor)
+        self.update_chunks(force=True)
 
     def zoom_in(self):
-        if self.zoom_index > -4:
-            self.zoom_index += 1
+        a = self.group_list.get("chunk")
+        if self.zoom_index > -4 or True:
+            self.zoom_index -= 1
             self.set_screen_size()
 
     def zoom_out(self):
-        if self.zoom_index < 4:
-            self.zoom_index -= 1
+        if self.zoom_index < 4 or True:
+            self.zoom_index += 1
             self.set_screen_size()
 
     def get_zoom(self):
@@ -149,13 +164,13 @@ class AppHandler2:
     def interact(self):
         # Camera movement:
         if 'up' in game_app.keybind:
-            self.coord_x += self.get_cam_shift("y", 0)
+            self.coord_y += self.get_cam_shift("y", -1)
         if 'down' in game_app.keybind:
             self.coord_y += self.get_cam_shift("y", 1)
         if 'left' in game_app.keybind:
-            self.coord_x += self.get_cam_shift("x", 0)
+            self.coord_x += self.get_cam_shift("x", -1)
         if 'right' in game_app.keybind:
-            self.coord_y += self.get_cam_shift("x", 1)
+            self.coord_x += self.get_cam_shift("x", 1)
 
         # Camera zoom:
         if 'mouse_up' in game_app.keybind:
@@ -164,13 +179,13 @@ class AppHandler2:
             self.zoom_out()
 
     def sort_sprite_group(self):
-        for group in self.group_list.values():
+        for key, group in self.group_list.items():
             if group.spritedict:
                 sorted_in_group_x = {sprite: value for sprite, value in sorted(group.spritedict.items(),
                                                                                key=lambda item: item[0].x)}
                 sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(),
                                                                              key=lambda item: item[0].y)}
-                group.spritedict = sorted_in_group
+                self.group_list.get(key).spritedict = sorted_in_group
 
     def update(self):
         self.update_zone()
@@ -183,14 +198,13 @@ class AppHandler2:
         self.sort_sprite_group()
 
     def update_sprite_groups(self):
-        self.group_list["chunk"].update()
-        self.group_list["chunk"].draw(self.app.renderer)
-        """for group in self.group_list.values():
+        for group in self.group_list.values():
             group.update()
-            group.draw(self.app.renderer)"""
 
-    def update_chunks(self):
-        if len(self.visible_chunks) == 0 or (self.last_coord_x != self.coord_x or self.last_coord_y != self.coord_y):
+    def update_chunks(self, force=False):
+        if      (len(self.visible_chunks) == 0 or
+                (self.last_coord_x != self.coord_x or self.last_coord_y != self.coord_y) or
+                force):
             self.set_detectable_chunks()
             previous_visible = self.visible_chunks
             self.set_visible_chunks()
@@ -202,8 +216,8 @@ class AppHandler2:
                     self.map.manager.unload_chunk(chunk_coordinates)
 
     def set_visible_chunks(self):
-        top_left_chunk_coordinates = self.get_chunk_coordinates(self.screen_x_start, self.screen_y_start)
-        bottom_right_chunk_coordinates = self.get_chunk_coordinates(self.screen_x_end, self.screen_y_end)
+        top_left_chunk_coordinates = self.get_chunk_coordinates(self.screen_x_start - self.margin, self.screen_y_start - self.margin)
+        bottom_right_chunk_coordinates = self.get_chunk_coordinates(self.screen_x_end + self.margin, self.screen_y_end + self.margin)
         visible_zone = self.select_zone(top_left_chunk_coordinates, bottom_right_chunk_coordinates)
         self.visible_chunks = [chunk for chunk in visible_zone if chunk in self.detectable_chunks]
 
@@ -222,8 +236,8 @@ class AppHandler2:
     @staticmethod
     def select_zone(top_left, bottom_right):
         chunk_list = []
-        for i in range(top_left[0], bottom_right[0] + 1):
-            for j in range(top_left[1], bottom_right[1] + 1):
+        for i in range(top_left[0], bottom_right[0] + 2):
+            for j in range(top_left[1], bottom_right[1] + 2):
                 chunk_list.append((i, j))
         return chunk_list
 
@@ -267,7 +281,7 @@ class AppInformation:
         self.update_fps()
         self.update_sprite_count()
 
-    def print_info(self, sprites = True, tiles = False, fps = True, minimum_fps = True, coordinates = True):
+    def print_info(self, sprites = True, tiles = False, fps = True, minimum_fps = True, coordinates = True, corner_coordinates = True):
         self.update_information()
         info_list = []
         if sprites:
@@ -279,229 +293,12 @@ class AppInformation:
         if minimum_fps:
             info_list.append(f"Minimum FPS: {normalize_text(self.min_fps)}; ")
         if coordinates:
-            info_list.append(f"Coordinates: {normalize_text(self.app_handler.get_coordinates())}; ")
+            info_list.append(f"Coord: {normalize_text(self.app_handler.get_coordinates(), 12)}; ")
+        if corner_coordinates:
+            info_list.append(f"Corner: {normalize_text(f"({self.app_handler.screen_x_start}, {self.app_handler.screen_y_start})", 16)}; ")
         infos = "".join(info_list)
         print(f"\r{infos}", end='')
 
-
-class BaseSprite:
-    def __init__(self, app_handler, rect):
-        """
-        :param app_handler: The handler of the game
-        :param self.x: Relative x position of the object on the window
-        :param self.y: Relative y position of the object on the window
-        """
-        self.app_handler = app_handler
-        self.image = None
-        self.rect = rect
-        self.entity_x, self.entity_y = 0, 0
-        self.x, self.y = 0, 0
-        self.offset_x, self.offset_y = 0, 0
-
-        self.in_sprite_list = False
-
-    def update(self):
-        """
-        Update the image on the screen, not the object.
-        """
-        if self.in_sprite_list:
-            self.set_position_on_screen()
-            self.rect.center = self.x, self.y
-
-    def set_position_on_screen(self):
-        self.offset_x, self.offset_y = self.app_handler.get_offset()
-        self.x, self.y = (self.entity_x - self.app_handler.cam_x + self.offset_x,
-                          self.entity_y - self.app_handler.cam_y + self.offset_y)
-
-    def load_on_screen(self):
-        if self.image is not None and self.rect is not None:
-            if self.entity_x is not None and self.entity_y is not None:
-                with self.app_handler.sprite_lock:
-                    self.app_handler.in_group.add_internal(self)
-                self.in_sprite_list = True
-        else:
-            raise Exception("Can't load sprite on screen")
-
-    def unload_from_screen(self):
-        if self.in_sprite_list:
-            self.in_sprite_list = False
-            with self.app_handler.sprite_lock:
-                self.app_handler.in_group.spritedict.pop(self, None)
-            self.image = None
-
-#todo : remplacer le apphandler, basesrpite et le systeme d'apparition des sprites
-
-class AppHandler:
-    def __init__(self, app):
-        self.app = app
-        self.cam_x, self.cam_y = 0, 0
-        self.renderer_offset_x, self.renderer_offset_y = 0, 0
-        self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
-        self.map = Map(self)
-        self.in_group = pg.sprite.Group()
-        self.sprite_lock = threading.Lock()
-        self.pause_group = {}
-        self.param_hud = pg.Surface([400, 200])
-        self.font = ft.SysFont('Verdana', FONT_SIZE)
-        self.tick_counter = 0
-        self.number_of_loaded_sprites = 0
-        self.zoom_scale = 5
-        self.cam_speed = BASE_SPEED
-
-        self.visible_chunks = []
-
-        # dev benchmark
-        self.function_timing_result = 0
-        self.min_fps = 100000
-
-    def move(self):
-        if 'up' in game_app.keybind:
-            self.cam_y -= self.cam_speed
-        if 'down' in game_app.keybind:
-            self.cam_y += self.cam_speed
-        if 'left' in game_app.keybind:
-            self.cam_x -= self.cam_speed
-        if 'right' in game_app.keybind:
-            self.cam_x += self.cam_speed
-
-    def interact(self):
-        if 'left_click' in game_app.keybind:
-            pass
-        if 'mouse_up' in game_app.keybind and self.zoom_scale < 10:
-            self.zoom_scale += 1
-            self.app.renderer.scale = (self.zoom_scale / 5, self.zoom_scale / 5)
-            self.generate_chunks()
-        if 'mouse_down' in game_app.keybind and self.zoom_scale > 2:
-            self.zoom_scale -= 1
-            self.app.renderer.scale = (self.zoom_scale / 5, self.zoom_scale / 5)
-            self.generate_chunks()
-
-    def timing_function(self, frequency, function, *args, **kwargs):
-        if self.tick_divider % frequency == 0:
-            self.tick_divider += 1
-            function(*args, **kwargs)
-        else:
-            self.tick_divider += 1
-
-    def update(self):
-        self.update_chunk_zone()
-        self.move()
-        self.interact()
-        self.map.manager.update()
-        self.in_group.update()
-        self.sort_sprite_group()
-
-    def get_biome_name(self):
-        x, y = self.get_chunk_position()
-        biome = self.map.biome_manager.get_biome(x, y)
-        return biome.name
-
-    def sort_sprite_group(self):
-        if self.in_group.spritedict:
-            sorted_in_group_x = {sprite: value for sprite, value in sorted(self.in_group.spritedict.items(),
-                                                                           key=lambda item: item[0].x)}
-            sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(),
-                                                                         key=lambda item: item[0].y)}
-            self.in_group.spritedict = sorted_in_group
-
-    def update_chunk_zone(self):
-        """
-        load all the chunks if needed
-        uses load_chunks() function.
-        """
-        if self.chunk_position != self.get_chunk_position((self.cam_x, self.cam_y)) or len(self.map) == 0:
-            self.generate_chunks()
-
-    def generate_chunks(self):
-        """
-        This appends a list of chunks to load or unload.
-        The following work is processed by the load_chunk_worker() which is a thread.
-        """
-        previous_chunks = self.visible_chunks
-        self.visible_chunks = self.get_visible_chunks()
-        self.chunk_position = self.get_chunk_position((self.cam_x, self.cam_y))
-
-        for chunk_coordinates in self.visible_chunks:
-            if chunk_coordinates not in previous_chunks:
-                self.map.manager.load_chunk(chunk_coordinates)
-
-        for chunk_coordinates in previous_chunks:
-            if chunk_coordinates not in self.visible_chunks:
-                self.map.manager.unload_chunk(chunk_coordinates)
-
-    def get_visible_chunks(self):
-        """
-        This load according to the windows size and the zoom_scale
-        :return: matrix of chunk coordinates
-        """
-        if self.zoom_scale < 5:
-            scale = 5 - self.zoom_scale
-        else:
-            scale = 0
-
-        max_chunks_width = WIN_W // (CHUNK_SIZE * TILE_PIXEL_SIZE)
-        max_chunks_height = WIN_H // (CHUNK_SIZE * TILE_PIXEL_SIZE)
-
-        chunk_offset_x = (WIN_W - TOTAL_WIDTH + CHUNK_PIXEL_WIDTH) // (CHUNK_PIXEL_WIDTH * 2)
-        chunk_offset_y = (WIN_H - TOTAL_WIDTH + CHUNK_PIXEL_WIDTH) // (CHUNK_PIXEL_WIDTH * 2)
-#TODO : refaire le système de zoom avec l'offset de ses morts
-        chunk_x = self.chunk_position[0]
-        chunk_y = self.chunk_position[1]
-        LOAD_MARGIN = 1
-        CHUNK_X_ON_SCREEN = (WIN_W + CHUNK_PIXEL_WIDTH - 1) // CHUNK_PIXEL_WIDTH
-        CHUNK_Y_ON_SCREEN = (WIN_H + CHUNK_PIXEL_WIDTH - 1) // CHUNK_PIXEL_WIDTH
-        X_OFFSET = chunk_offset_x
-        Y_OFFSET = chunk_offset_y
-        """return [
-            (i, j)
-            for i in range(chunk_x - LOAD_MARGIN - X_OFFSET - scale, chunk_x + CHUNK_X_ON_SCREEN + LOAD_MARGIN - X_OFFSET + scale)
-            for j in range(chunk_y - LOAD_MARGIN - Y_OFFSET - scale, chunk_y + CHUNK_Y_ON_SCREEN + LOAD_MARGIN - Y_OFFSET + scale)
-        ]"""
-        return [(8,8),(8,9),(9,8),(9,9)]
-
-
-        """return [
-            (i, j)
-            for i in range(self.chunk_position[0] - chunk_offset_x - 1 - scale,
-                           1 + self.chunk_position[0] + max_chunks_width - chunk_offset_x + 1 + scale)
-            for j in range(self.chunk_position[1] - chunk_offset_y - 1 - scale,
-                           1 + self.chunk_position[1] + max_chunks_height - chunk_offset_y + 1 + scale)
-        ]"""
-
-    def get_chunk_position(self, position=None):
-        """
-        transforms coordinates into chunk position
-        :param position: (x_cam, y_cam) -> position on the map
-        :return:
-        """
-        if not position:
-            chunk_x = self.cam_x // (TILE_PIXEL_SIZE * CHUNK_SIZE)
-            chunk_y = self.cam_y // (TILE_PIXEL_SIZE * CHUNK_SIZE)
-        else:
-            chunk_x = position[0] // (TILE_PIXEL_SIZE * CHUNK_SIZE)
-            chunk_y = position[1] // (TILE_PIXEL_SIZE * CHUNK_SIZE)
-        return chunk_x, chunk_y
-
-    def get_offset(self):
-        x = ((WIN_W - TOTAL_WIDTH) / 2) - (WIN_W - ((5 / self.zoom_scale) * WIN_W)) / 2
-        y = ((WIN_H - TOTAL_WIDTH) / 2) - (WIN_H - ((5 / self.zoom_scale) * WIN_H)) / 2
-        return x, y
-
-    def draw(self):
-        # Draw only the visible group
-        self.in_group.draw(self.app.renderer)
-
-    def draw_information(self):
-        if self.app.clock.get_fps() < self.min_fps and self.app.clock.get_fps() != 0.0:
-            self.min_fps = self.app.clock.get_fps()
-        min_fps = normalize_text(str(self.min_fps), 4)
-        total_tiles = normalize_text(str(self.number_of_loaded_sprites))
-        fps = normalize_text(str(self.app.get_fps()))
-        cam_coord = normalize_text(f"x: {self.cam_x} | y: {self.cam_y}", 24)
-        test_timer = ""#self.map.manager.test_timer
-
-    def stop_all_threads(self):
-        self.map.manager.stop()
 
 class App:
     def __init__(self):
@@ -521,8 +318,7 @@ class App:
         self.dt = self.clock.tick(MAX_FPS) * 0.001  # Time for each frame
         self.renderer.clear()
         self.app_handler.update()
-        self.app_handler.draw()
-        self.app_handler.draw_information()
+        self.renderer.present()
 
 
     def inputs(self):
