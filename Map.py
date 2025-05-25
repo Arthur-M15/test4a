@@ -5,8 +5,6 @@ from common.biomes.BiomeManager import *
 from App import ChunkGroup
 
 
-
-
 class Map:
     def __init__(self, app_handler, seed=0, height=100):
         self.app_handler = app_handler

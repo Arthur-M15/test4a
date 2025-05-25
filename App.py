@@ -3,7 +3,7 @@ from Map import *
 from test_tools import *
 
 
-class BaseSprite2:
+class BaseSprite:
     def __init__(self, app_handler, group_name, size):
         self.app_handler = app_handler
         self.image = None
@@ -50,19 +50,19 @@ class BaseSprite2:
             self.image = None
 
 
-class ChunkGroup(BaseSprite2):
+class ChunkGroup(BaseSprite):
     def __init__(self, app_handler, size):
         group_name = "chunk" # app_handler.group_list.get("chunk")
         super().__init__(app_handler, group_name, size)
 
 
-class EntityGroup(BaseSprite2):
+class EntityGroup(BaseSprite):
     def __init__(self, app_handler, size):
         group = "entity" # app_handler.group_list.get("entity")
         super().__init__(app_handler, group, size)
 
 
-class AppHandler2:
+class AppHandler:
     def __init__(self, app):
         self.app = app
 
@@ -108,7 +108,7 @@ class AppHandler2:
         self.logger = AppInformation(self)
 
         test_size = 20
-        self.central_sprite = BaseSprite2(self, "default", (test_size, test_size))
+        self.central_sprite = BaseSprite(self, "default", (test_size, test_size))
         pil_image = PILImage.new("RGBA", (test_size, test_size), (50, 50, 50, 50))
         self.central_sprite.image = pil_to_sdl2(self.app.renderer, pil_image)
         self.central_sprite.rect = self.central_sprite.image.get_rect()
@@ -308,7 +308,7 @@ class App:
         self.renderer = Renderer(self.window)           # Rendering the content in the window
         self.renderer.draw_color = (0, 0, 0, 255)       # Fill it with black
         self.clock = pg.time.Clock()
-        self.app_handler = AppHandler2(self)
+        self.app_handler = AppHandler(self)
         self.dt = 0.0
         self.keybind = {}
         self.fps = []
