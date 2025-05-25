@@ -15,8 +15,6 @@ class BaseSprite:
             group_name = "default"
             print("group not found")
         self.group_name = group_name
-        # todo later:
-        # self.is_moving = True
 
     def update(self):
         """ Update the image on the screen, not the object. """
