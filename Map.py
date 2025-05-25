@@ -1,15 +1,17 @@
 import math
+
+from App import BaseSprite
 from MapHandler import *
 
 from common.biomes.BiomeManager import *
-from App import ChunkGroup
+from common.entities.Entity import EntityManager
 
 
 class Map:
     def __init__(self, app_handler, seed=0, height=100):
         self.app_handler = app_handler
         self.chunks = {}
-        self.entities = []
+        self.entity_manager = EntityManager()
         self.seed = seed
 
         #normalized offset is on height=100
@@ -59,10 +61,10 @@ class Map:
         return len(self.chunks)
 
 
-class Chunk(ChunkGroup):
+class Chunk(BaseSprite):
     def __init__(self, app_handler, coordinates, biome, neighbor_chunk):
         size = app_handler.map.biome_manager.chunk_rect_size
-        super().__init__(app_handler, (size, size))
+        super().__init__(app_handler, "chunk", (size, size))
         self.app_handler = app_handler
         self.variation = CHUNK_VARIATIONS
         self.tiles = []
