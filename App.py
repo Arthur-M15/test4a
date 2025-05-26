@@ -1,6 +1,6 @@
 import pygame.mouse
 from Map import *
-from common.entities.properties.TestEntity import TestEntity
+from common.entities.properties.TestEntity1 import TestEntity1
 from common.entities.Entity import BaseSprite
 from test_tools import *
 
@@ -122,15 +122,17 @@ class AppHandler:
         if 'mouse_down' in game_app.keybind:
             self.zoom_out()
 
-        if 'l_click' in game_app.keybind or 'left_click' in game_app.keybind:
+        if 'l_click' in game_app.keybind:
+            x, y = self.get_mouse_pos()
+            [self.map.entity_manager.add(TestEntity1(self, x, y)) for _ in range(1000)]
+
+        if 'r_click' in game_app.keybind:
+            pass
+
+    def get_mouse_pos(self):
             x, y = pygame.mouse.get_pos()
-            x, y = self.screen_x_start + (x // self.zoom_factor), self.screen_y_start + (y // self.zoom_factor)
-            self.map.entity_manager.add(TestEntity(self, x, y))
-            self.map.entity_manager.add(TestEntity(self, x, y))
-            self.map.entity_manager.add(TestEntity(self, x, y))
-            self.map.entity_manager.add(TestEntity(self, x, y))
-            self.map.entity_manager.add(TestEntity(self, x, y))
-            self.map.entity_manager.add(TestEntity(self, x, y))
+            return self.screen_x_start + (x // self.zoom_factor), self.screen_y_start + (y // self.zoom_factor)
+
 
     def sort_sprite_group(self):
         for key, group in self.group_list.items():
@@ -287,7 +289,7 @@ class App:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     self.keybind['l_click'] = True
-                elif event.button == 2:
+                elif event.button == 3:
                     self.keybind['r_click'] = True
                 elif event.button == 4:
                     self.keybind['mouse_up'] = True

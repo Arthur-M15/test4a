@@ -3,15 +3,18 @@ from PIL import Image as PILImage
 
 from common.entities.Entity import MovingEntity
 
-
-class TestEntity(MovingEntity):
+class TestBaseEntity(MovingEntity):
     def __init__(self, app_handler, x, y):
-        size = (30, 30)
-        super().__init__(app_handler, size, timer_group=10)
+        self.size = (30, 30)
+        super().__init__(app_handler, self.size, timer_group=10)
         self.counter = 0
         self.entity_x = x
         self.entity_y = y
-        pil_image = PILImage.new("RGBA", size, (250, 50, 50, 255))
+
+class TestEntity1(TestBaseEntity):
+    def __init__(self, app_handler, x, y):
+        super().__init__(app_handler, x, y)
+        pil_image = PILImage.new("RGBA", self.size, (250, 50, 50, 255))
         self.load_image(pil_image)
 
     def process(self):
@@ -24,4 +27,7 @@ class TestEntity(MovingEntity):
             self.change_speed(x_rand, y_rand)
             self.counter = 0
 
+class TestEntity2(MovingEntity):
+    def __init__(self, app_handler, x, y):
+        super().__init__(app_handler, x, y)
 
