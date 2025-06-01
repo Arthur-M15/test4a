@@ -1,6 +1,6 @@
 import pygame.mouse
 from Map import *
-from common.entities.properties.TestEntity1 import TestEntity1
+from common.entities.properties.TestEntityX import *
 from common.entities.Entity import BaseSprite
 from test_tools import *
 
@@ -25,7 +25,7 @@ class AppHandler:
         self.detection_y_start = self.coord_y - self.detection_range
         self.detection_x_end = self.coord_x + self.detection_range
         self.detection_y_end = self.coord_y + self.detection_range
-        self.cam_speed = 5
+        self.cam_speed = 50
         self.cam_x_retenue = 0.0
         self.cam_y_retenue = 0.0
 
@@ -124,7 +124,7 @@ class AppHandler:
 
         if 'l_click' in game_app.keybind:
             x, y = self.get_mouse_pos()
-            [self.map.entity_manager.add(TestEntity1(self, x, y)) for _ in range(1000)]
+            [self.map.entity_manager.add(TestEntity2(self, x, y)) for _ in range(1000)]
 
         if 'r_click' in game_app.keybind:
             pass
@@ -134,7 +134,7 @@ class AppHandler:
             return self.screen_x_start + (x // self.zoom_factor), self.screen_y_start + (y // self.zoom_factor)
 
 
-    def sort_sprite_group(self):
+    def sort_sprite_group_bak(self):
         for key, group in self.group_list.items():
             if group.spritedict:
                 sorted_in_group_x = {sprite: value for sprite, value in sorted(group.spritedict.items(),
@@ -142,6 +142,14 @@ class AppHandler:
                 sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(),
                                                                              key=lambda item: item[0].y)}
                 self.group_list.get(key).spritedict = sorted_in_group
+
+    def sort_sprite_group(self):
+        for key, group in self.group_list.items():
+            sorted_in_group_x = {sprite: value for sprite, value in sorted(group.spritedict.items(),
+                                                                           key=lambda item: item[0].rect.midbottom[0])}
+            sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(),
+                                                                         key=lambda item: item[0].rect.midbottom[1])}
+            self.group_list.get(key).spritedict = sorted_in_group
 
     def update(self):
         self.update_zone()
