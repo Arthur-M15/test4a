@@ -1,4 +1,5 @@
 import pygame.mouse
+import sys
 from Map import *
 from common.entities.properties.TestEntityX import *
 from common.entities.Entity import BaseSprite
@@ -124,7 +125,9 @@ class AppHandler:
 
         if 'l_click' in game_app.keybind:
             x, y = self.get_mouse_pos()
-            [self.map.entity_manager.add(TestEntity2(self, x, y)) for _ in range(1000)]
+            [self.map.entity_manager.add(TestEntity4(self, x, y)) for _ in range(5000)]
+            #[self.map.entity_manager.add(TestEntity3(self, x, y)) for _ in range(10)]
+            #self.map.entity_manager.add(TestEntity3(self, x, y))
 
         if 'r_click' in game_app.keybind:
             pass
@@ -228,6 +231,7 @@ class AppInformation:
         self.fps = 0
         self.min_fps = 9999
         self.total_tiles = 0
+        self.function_delay = 0
 
     def update_fps(self):
         fps = self.app_handler.app.get_fps()
@@ -246,7 +250,7 @@ class AppInformation:
         self.update_fps()
         self.update_sprite_count()
 
-    def print_info(self, sprites = True, tiles = False, fps = True, minimum_fps = True, coordinates = True, corner_coordinates = True):
+    def print_info(self, sprites = True, tiles = False, fps = True, minimum_fps = True, coordinates = True, corner_coordinates = True, function_delay=True):
         self.update_information()
         info_list = []
         if sprites:
@@ -261,6 +265,8 @@ class AppInformation:
             info_list.append(f"Coord: {normalize_text(self.app_handler.get_coordinates(), 12)}; ")
         if corner_coordinates:
             info_list.append(f"Corner: {normalize_text(f"({self.app_handler.screen_x_start}, {self.app_handler.screen_y_start})", 16)}; ")
+        if function_delay:
+            info_list.append(f"Function Delay: {normalize_text(self.function_delay*1000, 8)} (ms); ")
         infos = "".join(info_list)
         print(f"\r{infos}", end='')
 

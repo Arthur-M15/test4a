@@ -1,17 +1,17 @@
 import math
 
-from App import BaseSprite
 from MapHandler import *
 
 from common.biomes.BiomeManager import *
-from common.entities.Entity import EntityManager
+from common.entities.Entity import EntityManager2, BaseSprite
+from common.entities import Entity_mypyc
 
 
 class Map:
     def __init__(self, app_handler, seed=0, height=100):
         self.app_handler = app_handler
         self.chunks = {}
-        self.entity_manager = EntityManager()
+        self.entity_manager = EntityManager2(self.app_handler)
         self.seed = seed
 
         #normalized offset is on height=100
@@ -71,8 +71,7 @@ class Chunk(BaseSprite):
         self.top_signal, self.bottom_signal, self.left_signal, self.right_signal = None, None, None, None
         self.biome = biome
         self.chunk_x, self.chunk_y = coordinates
-        self.entity_x = self.chunk_x * CHUNK_PIXEL_WIDTH
-        self.entity_y = self.chunk_y * CHUNK_PIXEL_WIDTH
+        self.entity_coord.set(self.chunk_x * CHUNK_PIXEL_WIDTH, self.chunk_y * CHUNK_PIXEL_WIDTH)
 
         self.frontier_biome = None
         self.__get_frontier_biome()
