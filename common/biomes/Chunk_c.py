@@ -2,7 +2,7 @@ from __future__ import annotations
 import math
 import random
 import Settings
-from common.entities.Entity_mypyc import BaseSprite, Coordinates
+from common.entities.Entity_c import BaseSprite, Coordinates
 from common.biomes.properties.biome_generator_helper import get_dominance_matrix_name
 from typing import Optional, Tuple, List, Dict, Any
 

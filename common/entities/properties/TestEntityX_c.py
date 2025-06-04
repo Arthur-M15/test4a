@@ -7,7 +7,7 @@ from typing import Tuple, TYPE_CHECKING
 from PIL import Image as PILImage
 
 from common.biomes import pil_to_sdl2
-from common.entities.Entity_mypyc import MovingEntity, Coordinates
+from common.entities.Entity_c import MovingEntity, Coordinates
 
 if TYPE_CHECKING:
     from App import AppHandler

@@ -7,9 +7,9 @@ setup(
     version="0.1",
     packages=["common.entities", "common.biomes"],
     ext_modules=mypycify([
-        "common/entities/Entity_mypyc.py",
-        "common/entities/properties/TestEntityX_mypyc.py",
-        "common/biomes/Chunk.py",
+        "common/entities/Entity_c.py",
+        "common/entities/properties/TestEntityX_c.py",
+        "common/biomes/Chunk_c.py",
     ],
     opt_level="3",
     debug_level="0"),

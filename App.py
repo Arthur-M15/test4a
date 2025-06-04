@@ -3,8 +3,8 @@ import sys
 from Map import *
 
 #from common.entities.properties.TestEntityX import *
-from common.entities.properties.TestEntityX_mypyc import *
-from common.entities.Entity_mypyc import BaseSprite
+from common.entities.properties.TestEntityX_c import *
+from common.entities.Entity_c import BaseSprite
 from test_tools import *
 
 
@@ -127,7 +127,7 @@ class AppHandler:
 
         if 'l_click' in game_app.keybind:
             x, y = self.get_mouse_pos()
-            [self.map.entity_manager.add(TestEntity4(self, x, y)) for _ in range(5000)]
+            [self.map.entity_manager.add(TestEntity4(self, x, y)) for _ in range(1000)]
             #[self.map.entity_manager.add(TestEntity3(self, x, y)) for _ in range(10)]
             #self.map.entity_manager.add(TestEntity3(self, x, y))
 

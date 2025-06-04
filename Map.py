@@ -3,8 +3,8 @@ import math
 from MapHandler import *
 from typing import Any, Dict, Optional
 from common.biomes.BiomeManager import *
-from common.entities.Entity_mypyc import EntityManager2
-from common.biomes.Chunk import Chunk
+from common.entities.Entity_c import EntityManager2
+from common.biomes.Chunk_c import Chunk
 
 
 class Map:

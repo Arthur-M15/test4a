@@ -3,7 +3,6 @@ import random
 
 import App
 from Settings import GRID_SIZE
-from common.entities.Entity import Entity, EntityManager2, Coordinates, MovingEntity
 
 
 class Tester:
