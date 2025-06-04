@@ -1,8 +1,10 @@
 import pygame.mouse
 import sys
 from Map import *
-from common.entities.properties.TestEntityX import *
-from common.entities.Entity import BaseSprite
+
+#from common.entities.properties.TestEntityX import *
+from common.entities.properties.TestEntityX_mypyc import *
+from common.entities.Entity_mypyc import BaseSprite
 from test_tools import *
 
 

@@ -38,6 +38,7 @@ class TestBaseEntity(MovingEntity):
         x_rand: float = random.uniform(-10, 10) * multiplier
         y_rand: float = random.uniform(-10, 10) * multiplier
         self.change_speed(x_rand, y_rand)
+        super().process()
 
 
 class TestEntity4(TestBaseEntity):

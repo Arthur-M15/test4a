@@ -1,18 +1,13 @@
 from __future__ import annotations
-import random
-import time
-from typing import Optional, Tuple, List, Dict, Iterator, Callable
+from typing import Iterator, Callable
 
-from App import AppHandler
-from Settings import *
+import Settings as S
 from common.biomes.properties.biome_generator_helper import pil_to_sdl2
-import math
+import pygame as pg
 
-# Entity.py
 import math
 import random
-import time
-from typing import Optional, Tuple, List, Dict, Generator
+from typing import Optional, Tuple, List, Dict
 
 class Coordinates:
     x: float
@@ -37,7 +32,6 @@ class Coordinates:
 
 
 class BaseSprite:
-    app_handler: AppHandler
     group_name: str
     entity_coord: Coordinates
     x: int
@@ -46,10 +40,10 @@ class BaseSprite:
     width: int
     height: int
     in_sprite_list: bool
-    def __init__(self, app_handler: AppHandler, group_name: Optional[str], size: Tuple[int, int], coordinates: Coordinates = Coordinates(0.0, 0.0)) -> None:
+    def __init__(self, app_handler, group_name: Optional[str], size: Tuple[int, int], coordinates: Coordinates = Coordinates(0.0, 0.0)) -> None:
         self.app_handler = app_handler
-        self.image = None
-        self.rect = None
+        self.image: Optional[pg._sdl2.video.Texture] = None
+        self.rect: Optional[pg.Rect] = None
         self.entity_coord: Coordinates = Coordinates(0.0, 0.0)
         self.x: int = 0
         self.y: int = 0
@@ -68,8 +62,8 @@ class BaseSprite:
     def get_zoom_offset(self) -> Tuple[int, int]:
         off_x: int
         off_y: int
-        off_x = (WIN_W - self.app_handler.width) // 2
-        off_y = (WIN_H - self.app_handler.height) // 2
+        off_x = (S.WIN_W - self.app_handler.width) // 2
+        off_y = (S.WIN_H - self.app_handler.height) // 2
         return off_x, off_y
 
     def update_position(self) -> None:
@@ -94,20 +88,19 @@ class BaseSprite:
             self.app_handler.group_list.get(self.group_name).spritedict.pop(self, None)
             if not keep_image:
                 self.image = None
+                self.rect = None
 
     def load_image(self, pil_image) -> None:
         self.image = pil_to_sdl2(self.app_handler.app.renderer, pil_image)
-        assert self.rect is not None
         self.rect = self.image.get_rect()
         self.load_on_screen()
 
     def change_image(self, new_image) -> None:
         self.image = pil_to_sdl2(self.app_handler.app.renderer, new_image)
-        assert self.rect is not None
         self.rect = self.image.get_rect()
 
+
 class Entity(BaseSprite):
-    app_handler: AppHandler
     size: Tuple[int, int]
     radius: int
     timer_group: int
@@ -119,15 +112,15 @@ class Entity(BaseSprite):
         self.timer_group: int = timer_group
         self.is_alive: bool = True
         self.collide_radius: int = radius
-        self.local_counter: int = random.randint(0, MAX_LOCAL_COUNTER)
+        self.local_counter: int = random.randint(0, S.MAX_LOCAL_COUNTER)
         self.coord_grid: Optional[Tuple[int, int]] = None
 
     def process(self):
-        return None
+        return EntityEvent("None", self.app_handler.map.entity_manager, self)
 
     def refresh(self) -> None:
         self.local_counter += 1
-        if self.local_counter % MAX_LOCAL_COUNTER == 0:
+        if self.local_counter % S.MAX_LOCAL_COUNTER == 0:
             if self.in_sprite_list and not self.pos_is_on_screen():
                 self.unload_from_screen(keep_image=True)
             elif not self.in_sprite_list and self.pos_is_on_screen():
@@ -139,15 +132,14 @@ class Entity(BaseSprite):
         x_end: int
         y_end: int
         x_start, y_start = self.app_handler.screen_x_start, self.app_handler.screen_y_start
-        if self.entity_coord.x + self.width + SPRITE_MARGIN >= x_start and self.entity_coord.y + self.height + SPRITE_MARGIN >= y_start:
+        if self.entity_coord.x + self.width + S.SPRITE_MARGIN >= x_start and self.entity_coord.y + self.height + S.SPRITE_MARGIN >= y_start:
             x_end, y_end = self.app_handler.screen_x_end, self.app_handler.screen_y_end
-            if self.entity_coord.x - SPRITE_MARGIN <= x_end and self.entity_coord.y - SPRITE_MARGIN <= y_end:
+            if self.entity_coord.x - S.SPRITE_MARGIN <= x_end and self.entity_coord.y - S.SPRITE_MARGIN <= y_end:
                 return True
         return False
 
 
 class MovingEntity(Entity):
-    app_handler: AppHandler
     size: Tuple[int, int]
     radius: int
     timer_group: int
@@ -158,7 +150,7 @@ class MovingEntity(Entity):
         super().__init__(app_handler, size, radius, timer_group, group, coordinates)
         self.x_speed: float = 0.0
         self.y_speed: float = 0.0
-        self.coord_grid = int(coordinates.x // GRID_SIZE), int(coordinates.y // GRID_SIZE)
+        self.coord_grid = int(coordinates.x // S.GRID_SIZE), int(coordinates.y // S.GRID_SIZE)
 
     def set_speed(self, x_speed: float, y_speed: float) -> None:
         self.x_speed = x_speed
@@ -177,13 +169,12 @@ class MovingEntity(Entity):
     def update_grid_zone(self) -> None:
         if self.pos_is_on_screen():
             x, y = self.entity_coord.get()
-            new_coord_grid = int(x // GRID_SIZE), int(y // GRID_SIZE)
+            new_coord_grid = int(x // S.GRID_SIZE), int(y // S.GRID_SIZE)
             if new_coord_grid != self.coord_grid:
                 self.app_handler.map.entity_manager.entities.update_coord_group(self, new_coord_grid)
 
 
 class EntityManager2:
-    app_handler: AppHandler
     max_modulo: int
     def __init__(self, app_handler, max_modulo: int = 240) -> None:
         self.app_handler = app_handler
@@ -195,7 +186,7 @@ class EntityManager2:
     def update(self) -> None:
         if self.frame_counter >= self.max_modulo:
             self.frame_counter = 0
-        event_list: List[EntityEvent] = []
+        event_list: List[Optional[EntityEvent]] = []
 
         for modulo, entity_list in self.entities.get_timer_groups():
             local_counter = 0
@@ -209,6 +200,7 @@ class EntityManager2:
                     if event is not None:
                         event_list.append(event)
         for event in event_list:
+            assert event is not None
             event.execute()
         self.frame_counter += 1
 
@@ -251,7 +243,7 @@ class EntityList2:
         x: float
         y: float
         x, y = entity.entity_coord.get()
-        new_coord_grid: Tuple[int, int] = int(x // GRID_SIZE), int(y // GRID_SIZE)
+        new_coord_grid: Tuple[int, int] = int(x // S.GRID_SIZE), int(y // S.GRID_SIZE)
         if entity.coord_grid != new_coord_grid:
             if entity.coord_grid and entity.coord_grid in self.__coord_entity:
                 self.__coord_entity[entity.coord_grid] = [e for e in self.__coord_entity[entity.coord_grid] if e.id != entity.id]
@@ -287,18 +279,17 @@ class EntityList2:
 
 
 class EntityEvent:
-    def __init__(self, event_type: str, entity_manager, entity: Entity, function: Optional[Callable[[], None]] = None) -> None:
+    def __init__(self, event_type: str, entity_manager, entity: Entity) -> None:
         self.event_type = event_type
         self.entity_manager = entity_manager
         self.entity = entity
-        self.function = function
 
     def execute(self) -> None:
-        if self.function is None:
-            if self.event_type == "kill_self":
-                self.kill()
-        else:
-            self.function()
+        if self.event_type == "None":
+            return
+        elif self.event_type == "kill_self":
+            self.kill()
+
 
     def kill(self) -> None:
         s_id = self.entity.id
