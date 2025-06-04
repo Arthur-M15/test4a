@@ -51,7 +51,7 @@ VARIANTS_NUMBER: int = 8
 CHUNK_THREAD_NUMBER: int = 1
 
 # Grid / Entity
-GRID_SIZE: int = 50
+GRID_SIZE: int = 20
 SPRITE_MARGIN: int = 50
 MAX_LOCAL_COUNTER: int = 10
 

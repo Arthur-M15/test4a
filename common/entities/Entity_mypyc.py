@@ -36,21 +36,20 @@ class BaseSprite:
     entity_coord: Coordinates
     x: int
     y: int
-    intern_zoom_index: Optional[int]
     width: int
     height: int
     in_sprite_list: bool
-    def __init__(self, app_handler, group_name: Optional[str], size: Tuple[int, int], coordinates: Coordinates = Coordinates(0.0, 0.0)) -> None:
+    def __init__(self, app_handler, group_name: str, size: Tuple[int, int], coordinates: Coordinates = Coordinates(0.0, 0.0)) -> None:
         self.app_handler = app_handler
         self.image: Optional[pg._sdl2.video.Texture] = None
         self.rect: Optional[pg.Rect] = None
-        self.entity_coord: Coordinates = Coordinates(0.0, 0.0)
+        self.entity_coord: Coordinates = coordinates
         self.x: int = 0
         self.y: int = 0
         self.intern_zoom_index = None
         self.width, self.height = size
         self.in_sprite_list: bool = False
-        if group_name is None:
+        if group_name not in app_handler.group_list.keys():
             group_name = "default"
             print("group not found")
         self.group_name = group_name
@@ -113,7 +112,8 @@ class Entity(BaseSprite):
         self.is_alive: bool = True
         self.collide_radius: int = radius
         self.local_counter: int = random.randint(0, S.MAX_LOCAL_COUNTER)
-        self.coord_grid: Optional[Tuple[int, int]] = None
+        self.coord_grid: Tuple[int, int] = 0, 0
+        self.has_coord_grid: bool = False
 
     def process(self):
         return EntityEvent("None", self.app_handler.map.entity_manager, self)
@@ -151,6 +151,7 @@ class MovingEntity(Entity):
         self.x_speed: float = 0.0
         self.y_speed: float = 0.0
         self.coord_grid = int(coordinates.x // S.GRID_SIZE), int(coordinates.y // S.GRID_SIZE)
+        self.has_coord_grid: bool = True
 
     def set_speed(self, x_speed: float, y_speed: float) -> None:
         self.x_speed = x_speed
@@ -166,13 +167,6 @@ class MovingEntity(Entity):
         self.entity_coord.y += self.y_speed
         self.app_handler.map.entity_manager.entities.update_coord_group2(self)
 
-    def update_grid_zone(self) -> None:
-        if self.pos_is_on_screen():
-            x, y = self.entity_coord.get()
-            new_coord_grid = int(x // S.GRID_SIZE), int(y // S.GRID_SIZE)
-            if new_coord_grid != self.coord_grid:
-                self.app_handler.map.entity_manager.entities.update_coord_group(self, new_coord_grid)
-
 
 class EntityManager2:
     max_modulo: int
@@ -186,7 +180,7 @@ class EntityManager2:
     def update(self) -> None:
         if self.frame_counter >= self.max_modulo:
             self.frame_counter = 0
-        event_list: List[Optional[EntityEvent]] = []
+        event_list: List[EntityEvent] = []
 
         for modulo, entity_list in self.entities.get_timer_groups():
             local_counter = 0
@@ -222,7 +216,7 @@ class EntityList2:
     def add_item(self, timer: int, serial_id: int, entity: Entity) -> None:
         self.__id_entity[serial_id] = entity
         self.__timer_entity.setdefault(timer, []).append(entity)
-        if entity.coord_grid is not None:
+        if entity.has_coord_grid:
             self.__coord_entity.setdefault(entity.coord_grid, []).append(entity)
 
     def remove_item(self, serial_id: int) -> None:

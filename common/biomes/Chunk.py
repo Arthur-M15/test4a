@@ -2,7 +2,7 @@ from __future__ import annotations
 import math
 import random
 import Settings
-from common.entities.Entity_mypyc import BaseSprite
+from common.entities.Entity_mypyc import BaseSprite, Coordinates
 from common.biomes.properties.biome_generator_helper import get_dominance_matrix_name
 from typing import Optional, Tuple, List, Dict, Any
 
@@ -13,7 +13,9 @@ class Chunk(BaseSprite):
     neighbor_chunk: Dict[str, Dict[str, Any]]
     def __init__(self, app_handler, coordinates: Tuple[int, int], biome: Any, neighbor_chunk: Dict[str, Dict[str, Any]]) -> None:
         size = app_handler.map.biome_manager.chunk_rect_size
-        super().__init__(app_handler, "chunk", (size, size))
+        float_coord_x: float = float(coordinates[0])
+        float_coord_y: float = float(coordinates[1])
+        super().__init__(app_handler, "chunk", (size, size), Coordinates(float_coord_x, float_coord_y))
         self.app_handler = app_handler
         self.variation: float = Settings.CHUNK_VARIATIONS
         self.tiles: List[List[float]] = []
