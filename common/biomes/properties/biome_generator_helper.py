@@ -109,7 +109,7 @@ def pil_to_surface(new_image):
     else:
         raise ValueError(f"Unsupported image mode: {mode}")
 
-def pil_to_sdl2(renderer, canvas):
+def pil_to_sdl2(renderer, canvas) -> pg._sdl2.Texture:
     size = canvas.size
     data = canvas.tobytes()
     surface = pg.image.fromstring(data, size, "RGBA")
@@ -168,7 +168,7 @@ def add_pixel_list(image, pixel_values):
         return image
 
 
-def get_dominance_matrix_name(frontier):
+def get_dominance_matrix_name(frontier) -> str:
     left, corner_left, top, corner_right, right = frontier
     if top and right and left:
         return "right_and_left_and_top"

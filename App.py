@@ -1,68 +1,16 @@
 import pygame.mouse
+import sys
 from Map import *
+
+#from common.entities.properties.TestEntityX import *
+from common.entities.properties.TestEntityX_c import *
+from common.entities.Entity_c import BaseSprite
 from test_tools import *
 
 
-class BaseSprite2:
-    def __init__(self, app_handler, group_name, size):
-        self.app_handler = app_handler
-        self.image = None
-        self.rect = None
-        self.entity_x, self.entity_y = 0.0, 0.0
-        self.x, self.y = 0, 0
-        self.intern_zoom_index = None
-        self.width, self.height = size
-        self.in_sprite_list = False
-        if group_name is None:
-            group_name = "default"
-            print("group not found")
-        self.group_name = group_name
-        # todo later:
-        # self.is_moving = True
-
-    def update(self):
-        """ Update the image on the screen, not the object. """
-        if self.in_sprite_list:
-            self.update_position()
-
-    def get_zoom_offset(self):
-        off_x = (WIN_W - self.app_handler.width) // 2
-        off_y = (WIN_H - self.app_handler.height) // 2
-        return off_x, off_y
-
-    def update_position(self):
-        screen_x, screen_y =  self.app_handler.screen_x_start, self.app_handler.screen_y_start
-        self.x, self.y = int(self.entity_x) - screen_x, int(self.entity_y) - screen_y
-        self.rect.center = self.x, self.y
-
-    def load_on_screen(self):
-        if self.image is not None and self.rect is not None:
-            if self.entity_x is not None and self.entity_y is not None:
-                self.app_handler.group_list.get(self.group_name).add_internal(self)
-                self.in_sprite_list = True
-        else:
-            raise Exception("Can't load sprite on screen")
-
-    def unload_from_screen(self):
-        if self.in_sprite_list:
-            self.in_sprite_list = False
-            self.app_handler.group_list.get(self.group_name).spritedict.pop(self, None)
-            self.image = None
 
 
-class ChunkGroup(BaseSprite2):
-    def __init__(self, app_handler, size):
-        group_name = "chunk" # app_handler.group_list.get("chunk")
-        super().__init__(app_handler, group_name, size)
-
-
-class EntityGroup(BaseSprite2):
-    def __init__(self, app_handler, size):
-        group = "entity" # app_handler.group_list.get("entity")
-        super().__init__(app_handler, group, size)
-
-
-class AppHandler2:
+class AppHandler:
     def __init__(self, app):
         self.app = app
 
@@ -80,7 +28,7 @@ class AppHandler2:
         self.detection_y_start = self.coord_y - self.detection_range
         self.detection_x_end = self.coord_x + self.detection_range
         self.detection_y_end = self.coord_y + self.detection_range
-        self.cam_speed = 5
+        self.cam_speed = 50
         self.cam_x_retenue = 0.0
         self.cam_y_retenue = 0.0
 
@@ -95,11 +43,13 @@ class AppHandler2:
         # Graphics:
         self.group_list = {
             "chunk": pg.sprite.Group(),
+            "floor": pg.sprite.Group(),
+            "entity": pg.sprite.Group(),
             "default": pg.sprite.Group()
         }
         """ todo later:
         self.floor_group = pg.sprite.Group()
-        self.object_group = pg.sprite.Group()
+        self.entity_group = pg.sprite.Group()
         self.atmosphere_group = pg.sprite.Group()
         """
         self.sprite_lock = threading.Lock()
@@ -108,11 +58,9 @@ class AppHandler2:
         self.logger = AppInformation(self)
 
         test_size = 20
-        self.central_sprite = BaseSprite2(self, "default", (test_size, test_size))
+        self.central_sprite = BaseSprite(self, "default", (test_size, test_size))
         pil_image = PILImage.new("RGBA", (test_size, test_size), (50, 50, 50, 50))
-        self.central_sprite.image = pil_to_sdl2(self.app.renderer, pil_image)
-        self.central_sprite.rect = self.central_sprite.image.get_rect()
-        self.central_sprite.load_on_screen()
+        self.central_sprite.load_image(pil_image)
 
     def set_screen_size(self):
         self.zoom_factor = self.get_zoom()
@@ -121,7 +69,6 @@ class AppHandler2:
         self.update_chunks(force=True)
 
     def zoom_in(self):
-        a = self.group_list.get("chunk")
         if self.zoom_index > -4 or True:
             self.zoom_index -= 1
             self.set_screen_size()
@@ -178,7 +125,21 @@ class AppHandler2:
         if 'mouse_down' in game_app.keybind:
             self.zoom_out()
 
-    def sort_sprite_group(self):
+        if 'l_click' in game_app.keybind:
+            x, y = self.get_mouse_pos()
+            [self.map.entity_manager.add(TestEntity4(self, x, y)) for _ in range(1000)]
+            #[self.map.entity_manager.add(TestEntity3(self, x, y)) for _ in range(10)]
+            #self.map.entity_manager.add(TestEntity3(self, x, y))
+
+        if 'r_click' in game_app.keybind:
+            pass
+
+    def get_mouse_pos(self):
+            x, y = pygame.mouse.get_pos()
+            return self.screen_x_start + (x // self.zoom_factor), self.screen_y_start + (y // self.zoom_factor)
+
+
+    def sort_sprite_group_bak(self):
         for key, group in self.group_list.items():
             if group.spritedict:
                 sorted_in_group_x = {sprite: value for sprite, value in sorted(group.spritedict.items(),
@@ -187,15 +148,24 @@ class AppHandler2:
                                                                              key=lambda item: item[0].y)}
                 self.group_list.get(key).spritedict = sorted_in_group
 
+    def sort_sprite_group(self):
+        for key, group in self.group_list.items():
+            sorted_in_group_x = {sprite: value for sprite, value in sorted(group.spritedict.items(),
+                                                                           key=lambda item: item[0].rect.midbottom[0])}
+            sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(),
+                                                                         key=lambda item: item[0].rect.midbottom[1])}
+            self.group_list.get(key).spritedict = sorted_in_group
+
     def update(self):
         self.update_zone()
         self.interact()
         self.update_chunks()
+        self.map.entity_manager.update()
         self.map.manager.update()
         self.update_sprite_groups()
+        self.sort_sprite_group()
         self.draw()
         self.draw_information()
-        self.sort_sprite_group()
 
     def update_sprite_groups(self):
         for group in self.group_list.values():
@@ -263,6 +233,7 @@ class AppInformation:
         self.fps = 0
         self.min_fps = 9999
         self.total_tiles = 0
+        self.function_delay = 0
 
     def update_fps(self):
         fps = self.app_handler.app.get_fps()
@@ -281,7 +252,7 @@ class AppInformation:
         self.update_fps()
         self.update_sprite_count()
 
-    def print_info(self, sprites = True, tiles = False, fps = True, minimum_fps = True, coordinates = True, corner_coordinates = True):
+    def print_info(self, sprites = True, tiles = False, fps = True, minimum_fps = True, coordinates = True, corner_coordinates = True, function_delay=True):
         self.update_information()
         info_list = []
         if sprites:
@@ -296,6 +267,8 @@ class AppInformation:
             info_list.append(f"Coord: {normalize_text(self.app_handler.get_coordinates(), 12)}; ")
         if corner_coordinates:
             info_list.append(f"Corner: {normalize_text(f"({self.app_handler.screen_x_start}, {self.app_handler.screen_y_start})", 16)}; ")
+        if function_delay:
+            info_list.append(f"Function Delay: {normalize_text(self.function_delay*1000, 8)} (ms); ")
         infos = "".join(info_list)
         print(f"\r{infos}", end='')
 
@@ -303,12 +276,12 @@ class AppInformation:
 class App:
     def __init__(self):
         pg.init()
-        self.window_size = window_width, window_height = WIN_W, WIN_H
+        self.window_size = WIN_W, WIN_H
         self.window = Window(size=self.window_size)     # Create a window
         self.renderer = Renderer(self.window)           # Rendering the content in the window
         self.renderer.draw_color = (0, 0, 0, 255)       # Fill it with black
         self.clock = pg.time.Clock()
-        self.app_handler = AppHandler2(self)
+        self.app_handler = AppHandler(self)
         self.dt = 0.0
         self.keybind = {}
         self.fps = []
@@ -330,7 +303,11 @@ class App:
                 sys.exit()
 
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 4:
+                if event.button == 1:
+                    self.keybind['l_click'] = True
+                elif event.button == 3:
+                    self.keybind['r_click'] = True
+                elif event.button == 4:
                     self.keybind['mouse_up'] = True
                     self.keybind['mouse_wheel'] = True
                 elif event.button == 5:
