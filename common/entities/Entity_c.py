@@ -178,9 +178,9 @@ class MovingEntity(Entity):
 
 class EntityManager2:
     max_modulo: int
-    def __init__(self, map, max_modulo: int = 240) -> None:
-        self.app_handler = map.app_handler
-        self.map = map
+    def __init__(self, map_m, max_modulo: int = 240) -> None:
+        self.app_handler = map_m.app_handler
+        self.map = map_m
         self.entities = EntityList2()
         self.max_modulo = max_modulo
         self.frame_counter: int = 0
@@ -188,16 +188,17 @@ class EntityManager2:
         self.event_list: List[EntityEvent] = []
 
     def update(self) -> None:
+        t = time.time()
         for modulo, entity_list in self.entities.get_timer_groups():
             need_process: bool = self.frame_counter % modulo == 0
             for entity in entity_list:
                 entity.refresh()
                 if need_process:
                     entity.process()
-        t = time.time()
+                    pass
+        self.app_handler.logger.function_delay = time.time() - t
         for event in self.event_list:
             event.execute()
-        self.app_handler.logger.function_delay = time.time() - t
         self.event_list.clear()
         self.frame_counter += 1
 
@@ -243,12 +244,13 @@ class EntityList2:
         x, y = entity.entity_coord.get_coord()
         new_coord_grid: Tuple[int, int] = int(x // S.GRID_SIZE), int(y // S.GRID_SIZE)
         if entity.coord_grid != new_coord_grid:
-            if entity.coord_grid and entity.coord_grid in self.__coord_entity:
+            if entity.coord_grid in self.__coord_entity:
                 self.__coord_entity[entity.coord_grid] = [e for e in self.__coord_entity[entity.coord_grid] if e.id != entity.id]
                 if not self.__coord_entity[entity.coord_grid]:
                     del self.__coord_entity[entity.coord_grid]
             entity.coord_grid = new_coord_grid
             self.__coord_entity.setdefault(entity.coord_grid, []).append(entity)
+
 
     def update_coord_group(self, entity: Entity, new_coordinates: Tuple[int, int]) -> None:
         if entity.coord_grid is None:
@@ -268,11 +270,10 @@ class EntityList2:
                     entity_list.extend(self.__coord_entity[coordinates])
         return entity_list
 
-    def get_nearby_entities2(self, grid_coordinates: Tuple[float, float], size: int = 1) -> Iterator[Entity]:
-        for coord in self.nearby_zones.get_zones(grid_coordinates, size):
+    def get_nearby_entities2(self, coordinates: Tuple[float, float], grid, size: int = 1) -> Iterator[Entity]:
+        for coord in self.nearby_zones.get_zones(coordinates, grid, size):
             for entity in self.__coord_entity.get(coord, []):
                 yield entity
-
 
     def get_entities(self):
         return self.__id_entity.values()
@@ -305,12 +306,10 @@ class NearbyZones:
     def __init__(self) -> None:
         self.mask: List[List[List[Tuple[int, int]]]] = get_patterns(S.MAX_GRID_LAYER)
 
-    def get_zones(self, coordinates: Tuple[float, float], size: int = 1) -> Iterator[Tuple[int, int]]:
+    def get_zones(self, coordinates: Tuple[float, float], grid_coordinates: Tuple[int, int], size: int) -> Iterator[Tuple[int, int]]:
         x: int = int(coordinates[0])
         y: int = int(coordinates[1])
-        grid_x: int = x//S.GRID_SIZE
-        grid_y: int = y//S.GRID_SIZE
-        way: int = get_way(x, y, S.MAX_GRID_LAYER)[1]
+        way: int = get_way(x, y, S.MAX_GRID_LAYER)
         if size > S.MAX_GRID_LAYER:
             warnings.warn("the size for nearby zones is too big ! zone list would be truncated.", RuntimeWarning)
 
@@ -318,8 +317,7 @@ class NearbyZones:
             if i > size:
                 break
             for zone_coords in layer:
-                yield zone_coords[0]+grid_x, zone_coords[1]+grid_y
-
+                yield zone_coords[0]+grid_coordinates[0], zone_coords[1]+grid_coordinates[1]
 
 
 def get_patterns(size: int) -> List[List[List[Tuple[int, int]]]]:
@@ -366,13 +364,14 @@ def pivot(i, j, is_reversed: bool):
     else:
         return i, j
 
-def get_way(x: float, y: float, modulo: int) -> Tuple[str, int]:
-    r_x = x%modulo
-    r_y = y%modulo
+def get_way(x: int, y: int, modulo: int) -> int:
+    r_x: int = x % modulo
+    r_y: int = y % modulo
+    way: Tuple[int, int]
     if r_x + r_y < modulo:
-        way = ("down", 1), ("left", 2)
+        way = 1, 2
     else:
-        way = ("right", 3), ("top", 0)
+        way = 3, 0
     if r_x > r_y:
         return way[0]
     else:

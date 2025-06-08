@@ -29,7 +29,7 @@ FPS_LIST_SIZE: int = 50
 # Map & Terrain
 BASE_SPEED: float = 1.0
 CHUNK_SIZE: int = 12
-CHUNK_LOAD_DISTANCE: int = 20
+CHUNK_LOAD_DISTANCE: int = 10
 TILE_PIXEL_SIZE: int = 56
 CHUNK_VARIATIONS: float = 0.05
 HARMONIC_NUMBER: int = 5
@@ -53,7 +53,7 @@ CHUNK_THREAD_NUMBER: int = 1
 # Grid / Entity
 GRID_SIZE: int = 40
 SPRITE_MARGIN: int = 50
-MAX_LOCAL_COUNTER: int = 10
+MAX_LOCAL_COUNTER: int = 120
 MAX_GRID_LAYER: int = 10
 
 # Environment config

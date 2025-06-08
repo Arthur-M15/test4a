@@ -59,7 +59,7 @@ class AppHandler:
         self.central_sprite = BaseSprite(self, "default", (test_size, test_size))
         pil_image = PILImage.new("RGBA", (test_size, test_size), (50, 50, 50, 50))
         self.central_sprite.load_image(pil_image)
-        [self.map.entity_manager.add(TestEntity4(self, 0.0, 0.0)) for _ in range(10000)]
+        #[self.map.entity_manager.add(TestEntity4(self, 0.0, 0.0)) for _ in range(10000)]
 
     def set_screen_size(self):
         self.zoom_factor = self.get_zoom()

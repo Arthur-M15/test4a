@@ -32,7 +32,7 @@ class TestBaseEntity(MovingEntity):
         rand_y: float = random.uniform(-distance, distance)
         x += rand_x
         y += rand_y
-        super().__init__(app_handler, self.size, timer_group=1, coordinates=Coordinates(x, y))
+        super().__init__(app_handler, self.size, timer_group=120, coordinates=Coordinates(x, y))
         self.counter: int = 0
         self.entity_coord.set_coord(x, y)
         self.time_to_live: int = int(random.expovariate(0.001))
@@ -58,9 +58,7 @@ class TestEntity4(TestBaseEntity):
 
     def refresh(self):
         super().refresh()
-        #nearby_entities = self.manager.entities.get_nearby_entities(self.coord_grid)
-        #for entity in self.manager.entities.get_nearby_entities(self.coord_grid):
-        for entity in self.manager.entities.get_nearby_entities2(self.entity_coord.get_coord()):
+        for entity in self.manager.entities.get_nearby_entities2(self.entity_coord.get_coord(), self.coord_grid):
             if entity.id != self.id:
                 if entity.collide_radius + self.collide_radius >= entity.entity_coord.get_distance(self.entity_coord):
                     self.image = self.red_image
