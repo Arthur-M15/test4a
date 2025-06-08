@@ -321,6 +321,7 @@ class NearbyZones:
                 yield zone_coords[0]+grid_x, zone_coords[1]+grid_y
 
 
+
 def get_patterns(size: int) -> List[List[List[Tuple[int, int]]]]:
     pattern_list: List[List[List[Tuple[int, int]]]] = []
     if size == 0:
