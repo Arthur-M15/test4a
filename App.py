@@ -8,8 +8,6 @@ from common.entities.Entity_c import BaseSprite
 from test_tools import *
 
 
-
-
 class AppHandler:
     def __init__(self, app):
         self.app = app
@@ -61,6 +59,7 @@ class AppHandler:
         self.central_sprite = BaseSprite(self, "default", (test_size, test_size))
         pil_image = PILImage.new("RGBA", (test_size, test_size), (50, 50, 50, 50))
         self.central_sprite.load_image(pil_image)
+        [self.map.entity_manager.add(TestEntity4(self, 0.0, 0.0)) for _ in range(10000)]
 
     def set_screen_size(self):
         self.zoom_factor = self.get_zoom()
@@ -127,7 +126,6 @@ class AppHandler:
 
         if 'l_click' in game_app.keybind:
             x, y = self.get_mouse_pos()
-            [self.map.entity_manager.add(TestEntity4(self, x, y)) for _ in range(1000)]
             #[self.map.entity_manager.add(TestEntity3(self, x, y)) for _ in range(10)]
             #self.map.entity_manager.add(TestEntity3(self, x, y))
 

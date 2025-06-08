@@ -24,7 +24,7 @@ FONT_SIZE: int = 14
 
 # FPS
 MAX_FPS: int = 0
-FPS_LIST_SIZE: int = 30
+FPS_LIST_SIZE: int = 50
 
 # Map & Terrain
 BASE_SPEED: float = 1.0
@@ -51,9 +51,10 @@ VARIANTS_NUMBER: int = 8
 CHUNK_THREAD_NUMBER: int = 1
 
 # Grid / Entity
-GRID_SIZE: int = 50
+GRID_SIZE: int = 40
 SPRITE_MARGIN: int = 50
 MAX_LOCAL_COUNTER: int = 10
+MAX_GRID_LAYER: int = 10
 
 # Environment config
 ENVIRONMENT: int = 0  # 0 = Default, 12 = TILESGEN, 10 = TEST_SERIAL, 11 = TEST, 20 = BETA, 30 = PROD

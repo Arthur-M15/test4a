@@ -11,7 +11,7 @@ class Map:
     def __init__(self, app_handler, seed=0, height=100):
         self.app_handler = app_handler
         self.chunks = {}
-        self.entity_manager = EntityManager2(self.app_handler)
+        self.entity_manager = EntityManager2(self)
         self.seed = seed
 
         #normalized offset is on height=100
