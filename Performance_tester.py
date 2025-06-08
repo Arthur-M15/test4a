@@ -9,20 +9,20 @@ class Tester:
     def __init__(self):
         self.app = App.App()
         self.app_handler = App.AppHandler(self.app)
-        self.entity_manager = EntityManager2(self.app_handler)
+        self.entity_manager_test = EntityManager2(self.app_handler)
         self.app_handler.update_zone()
         self.size = (30, 30)
         self.entity = Entity(self.app_handler, self.size)
 
     def __clean(self):
-        es = self.entity_manager.entities.get_entities()
+        es = self.entity_manager_test.entities.get_entities()
         for e in es:
-            self.entity_manager.entities.remove_item(e.id)
+            self.entity_manager_test.entities.remove_item(e.id)
 
     def pos_is_on_screen_tester(self):
         t = time.time()
         for i in range(1000):
-            self.entity.entity_coord.set(random.randint(-1000, 1000), random.randint(-1000, 1000))
+            self.entity.entity_coord.set_coord(random.randint(-1000, 1000), random.randint(-1000, 1000))
             self.entity.pos_is_on_screen()
         result = time.time() - t
         print(f"pos_is_on_screen: {result} seconds")
@@ -30,9 +30,9 @@ class Tester:
     def update_coord_group_tester(self):
         for i in range(100):
             for j in range(100):
-                self.app_handler.map.entity_manager.add(MovingEntity(self.app_handler, self.size, Coordinates(i*GRID_SIZE, j*GRID_SIZE)))
+                self.app_handler.map.entity_manager_test.add(MovingEntity(self.app_handler, self.size, Coordinates(i * GRID_SIZE, j * GRID_SIZE)))
         t = time.time()
-        for i, e in enumerate(self.entity_manager.entities.fetch_entities()):
+        for i, e in enumerate(self.entity_manager_test.entities.fetch_entities()):
             e.update_grid_zone()
             print(i)
         result = time.time() - t
@@ -49,11 +49,11 @@ class Tester:
 
     def get_nearby_entities_tester(self):
         self.__clean()
-        [self.entity_manager.entities.add_item(0, i, MovingEntity(self.app_handler, self.size, coordinates=Coordinates(0, 0))) for i in range(1000)]
+        [self.entity_manager_test.entities.add_item(0, i, MovingEntity(self.app_handler, self.size, coordinates=Coordinates(0, 0))) for i in range(1000)]
         t = time.time()
         a = []
         for _ in range(1000):
-            a = self.entity_manager.entities.get_nearby_entities((0, 0))
+            a = self.entity_manager_test.entities.get_nearby_entities((0, 0))
         print(f"{(time.time() - t)*1000} ms")
         print(len(a))
 

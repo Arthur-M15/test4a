@@ -26,7 +26,7 @@ class Chunk(BaseSprite):
         self.biome = biome
         self.chunk_x: int = coordinates[0]
         self.chunk_y: int = coordinates[1]
-        self.entity_coord.set(self.chunk_x * Settings.CHUNK_PIXEL_WIDTH, self.chunk_y * Settings.CHUNK_PIXEL_WIDTH)
+        self.entity_coord.set_coord(self.chunk_x * Settings.CHUNK_PIXEL_WIDTH, self.chunk_y * Settings.CHUNK_PIXEL_WIDTH)
 
         self.frontier_biome: Optional[str] = None
         self.__get_frontier_biome()
