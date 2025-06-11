@@ -72,7 +72,21 @@ class TestEntity4(TestBaseEntity):
 class TestEntity5(TestBaseEntity):
     def __init__(self, app_handler: AppHandler, x: float, y: float):
         super().__init__(app_handler, x, y)
+        green_a = PILImage.new("RGBA", self.size, green_color())
         self.red_image = pil_to_sdl2(app_handler.app.renderer, PILImage.new("RGBA", self.size, red_color()))
-        self.load_sdl_image(self.red_image)
+        self.green_image = pil_to_sdl2(app_handler.app.renderer, green_a)
+        self.load_image(green_a)
+        self.is_green = True
         self.process()
 
+    def refresh(self):
+        super().refresh()
+        for entity in self.manager.entities.get_nearby_entities2(self.entity_coord.get_coord(), self.coord_grid):
+            if entity.id != self.id:
+                if entity.collide_radius + self.collide_radius >= entity.entity_coord.get_distance(self.entity_coord):
+                    self.image = self.red_image
+                    self.is_green = False
+                    return
+        self.image = self.green_image
+        self.is_green = True
+        self.manager.event_list.append(EntityEvent("none", self.manager, self))
