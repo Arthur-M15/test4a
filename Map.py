@@ -3,7 +3,7 @@ import math
 from MapHandler import *
 from typing import Any, Dict, Optional
 from common.biomes.BiomeManager import *
-from common.entities.Entity_c import EntityManager2
+from common.entities.Entity_c2 import EntityManager2
 from common.biomes.Chunk_c import Chunk
 
 
