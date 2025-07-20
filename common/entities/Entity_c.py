@@ -61,12 +61,6 @@ class BaseSprite:
         if self.in_sprite_list:
             self.update_position()
 
-    def get_zoom_offset(self) -> Tuple[int, int]:
-        off_x: int
-        off_y: int
-        off_x = (S.WIN_W - self.app_handler.width) // 2
-        off_y = (S.WIN_H - self.app_handler.height) // 2
-        return off_x, off_y
 
     def update_position(self) -> None:
         screen_x: int
@@ -284,7 +278,7 @@ class EntityList2:
 
     #current:
     def get_nearby_entities2(self, coordinates: Tuple[float, float], grid: Tuple[int, int], size: int = 1) -> Iterator[Entity]:
-        for coord in self.nearby_zones.get_zones3(coordinates, grid, size):
+        for coord in self.nearby_zones.get_zones(coordinates, grid, size):
             for entity in self.__coord_entity.get(coord, []):
                 yield entity
     #todo : optimiser ce put*** de get_nearby_entities(), car le 3 marche encore moins bien.

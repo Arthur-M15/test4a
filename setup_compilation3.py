@@ -3,6 +3,6 @@ from Cython.Build import cythonize
 
 setup(
     package=["common/entities"],
-    ext_modules=cythonize(["common/entities/Entity_c.pyx.bak"], language_level="3"),
+    ext_modules=cythonize(["common/entities/Entity_c3.pyx"], language_level="3"),
 
 )

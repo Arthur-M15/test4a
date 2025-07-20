@@ -3,8 +3,9 @@ import sys
 from Map import *
 
 #from common.entities.properties.TestEntityX import *
-from common.entities.properties.TestEntityX_c import *
-from common.entities.Entity_c import BaseSprite
+#from common.entities.properties.TestEntityX_c import *
+from common.entities.Entity_c3 import BaseSprite, TestEntity
+#from common.entities.Entity_c import BaseSprite
 from test_tools import *
 
 
@@ -56,10 +57,7 @@ class AppHandler:
         self.logger = AppInformation(self)
 
         test_size = 20
-        self.central_sprite = BaseSprite(self, "default", (test_size, test_size))
-        pil_image = PILImage.new("RGBA", (test_size, test_size), (50, 50, 50, 50))
-        self.central_sprite.load_image(pil_image)
-        [self.map.entity_manager.add(TestEntity4(self, 0.0, 0.0)) for _ in range(10000)]
+        #[self.map.entity_manager.add(TestEntity4(self, 0.0, 0.0)) for _ in range(10000)]
         #[self.map.entity_manager.add(TestEntity5(self, 0.0, 0.0)) for _ in range(5000)]
 
     def set_screen_size(self):
