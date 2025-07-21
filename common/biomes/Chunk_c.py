@@ -2,20 +2,21 @@ from __future__ import annotations
 import math
 import random
 import Settings
-from common.entities.Entity_c import BaseSprite, Coordinates
+#from common.entities.Entity_c import BaseSprite, Coordinates
+import common.entities.Entity_c3 as CythonEntity
 from common.biomes.properties.biome_generator_helper import get_dominance_matrix_name
 from typing import Optional, Tuple, List, Dict, Any
 
 
-class Chunk(BaseSprite):
-    coordinates: Tuple[int, int]
+class Chunk(CythonEntity.PyBaseSprite):
+    coord_mpc: Tuple[int, int]
     biome: Any
     neighbor_chunk: Dict[str, Dict[str, Any]]
-    def __init__(self, app_handler, coordinates: Tuple[int, int], biome: Any, neighbor_chunk: Dict[str, Dict[str, Any]]) -> None:
+    def __init__(self, app_handler, coord_mpc: Tuple[int, int], biome: Any, neighbor_chunk: Dict[str, Dict[str, Any]]) -> None:
         size = app_handler.map.biome_manager.chunk_rect_size
-        float_coord_x: float = float(coordinates[0])
-        float_coord_y: float = float(coordinates[1])
-        super().__init__(app_handler, "chunk", (size, size), Coordinates(float_coord_x, float_coord_y))
+        float_coord_x: float = float(coord_mpc[0])
+        float_coord_y: float = float(coord_mpc[1])
+        super().__init__(app_handler, "chunk", float_coord_x, float_coord_y, size, size)
         self.app_handler = app_handler
         self.variation: float = Settings.CHUNK_VARIATIONS
         self.tiles: List[List[float]] = []
@@ -24,9 +25,12 @@ class Chunk(BaseSprite):
         self.left_signal: List[float] = []
         self.right_signal: List[float] = []
         self.biome = biome
-        self.chunk_x: int = coordinates[0]
-        self.chunk_y: int = coordinates[1]
-        self.entity_coord.set_coord(self.chunk_x * Settings.CHUNK_PIXEL_WIDTH, self.chunk_y * Settings.CHUNK_PIXEL_WIDTH)
+        self.chunk_x: int = coord_mpc[0]
+        self.chunk_y: int = coord_mpc[1]
+
+        new_x = self.chunk_x * Settings.CHUNK_PIXEL_WIDTH
+        new_y = self.chunk_y * Settings.CHUNK_PIXEL_WIDTH
+        self.set_coordinates(new_x, new_y)
 
         self.frontier_biome: Optional[str] = None
         self.__get_frontier_biome()

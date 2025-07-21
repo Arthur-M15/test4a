@@ -1,15 +1,14 @@
+CYTHON_TRACE = 1
+
 # cython: language_level=3
 import random
 from argparse import ArgumentError
-from libc.stdint cimport uint32_t, uint64_t
-from libc.math cimport sqrt, fabs
-from typing import List
+from libc.math cimport sqrt
 
 from PIL import Image as PILImage
 from common.biomes.properties import pil_to_sdl2
 
 import Settings as S
-
 
 cdef struct DoublePair:
     double x
@@ -26,16 +25,17 @@ cdef struct IntQuatuor:
     int y_end
 
 cdef class Coordinates:
-    cdef double x
-    cdef double y
-    cdef int width
-    cdef int height
+    cdef public double x
+    cdef public double y
+    cdef public int width
+    cdef public int height
 
     def __cinit__(self, double x_val=0.0, double y_val=0.0, int width_v=0, int height_v=0):
         self.x = x_val
         self.y = y_val
         self.width = width_v
         self.height = height_v
+
 
     cdef double get_distance(self, double x, double y):
         cdef double dx = self.x - x
@@ -53,31 +53,48 @@ cdef class Coordinates:
         return s
 
 
+class PyBaseSprite(BaseSprite):
+    """
+    BaseSprite interface for python calls
+    """
+    def __init__(self, app_handler, group_name, x, y, w, h):
+        xc = <double>x
+        yc = <double>y
+        wc = <int>w
+        hc = <int>h
+        c = Coordinates(xc, yc, wc, hc)
+        super().__init__(app_handler, group_name, c)
+
+    def set_coordinates(self, x, y):
+        self.coordinates.x = <double>x
+        self.coordinates.y = <double>y
+
+    def set_size(self, w, h):
+        self.coordinates.w = <double>w
+        self.coordinates.h = <double>h
+
+
 cdef class BaseSprite:
     cdef object app_handler
-    cdef object image
-    cdef object rect
-    cdef Coordinates coordinates
-    cdef double x
-    cdef double y
-    cdef str group_name
+    cdef public Coordinates coordinates
+    cdef public double x
+    cdef public double y
     def __init__(self,
                  object app_handler,
-                 str group_name,
+                 group_name,
                  Coordinates coord):
         self.app_handler = app_handler
         self.image = None
         self.rect = None
         self.coordinates = coord
-        self.x = 0
-        self.y = 0
+        self.x = 0.0
+        self.y = 0.0
         self.in_sprite_list = False
         if group_name not in app_handler.group_list.keys():
             group_name = "default"
             print("group not found")
         self.group_name = group_name
 
-    #todo later : replace the BaseSprite function bellow and implement an enhanced version
     def update(self):
         """
         code executed on each tick if is on screen
@@ -98,7 +115,7 @@ cdef class BaseSprite:
             self.app_handler.group_list.get(self.group_name).add_internal(self)
             self.in_sprite_list = True
         else:
-            raise Exception("Can't load sprite on screen")
+            raise Exception(f"Can't load sprite on screen \n self.rect : {self.rect}\n self.image : {self.image}")
 
     def unload_from_screen(self, keep_image: bool = False):
         if self.in_sprite_list:
@@ -221,15 +238,15 @@ cdef class MovingEntity(StaticEntity):
         self.y_speed += y_speed
 
     cdef void refresh(self):
-        super().refresh()
         self.coordinates.x += self.x_speed
         self.coordinates.y += self.y_speed
         self.entity_manager.update_grid(self)
+        super().refresh()
 
 
 cdef class EntityManager:
     cdef object app_handler
-    cdef IntQuatuor window_dimensions
+    cdef public IntQuatuor window_dimensions
     cdef int frame_counter
     cdef int entity_id_counter
     cdef dict entity_with_id
@@ -467,7 +484,7 @@ cdef class EntityManager:
                 if m_entity not in s_entity.collide_list:
                     s_entity.collide_list.append(m_entity)
 
-# todo : écrire une classe de test TestEntity
+
 cdef class TestEntity(MovingEntity):
 
     cdef object app_handler
@@ -481,11 +498,11 @@ cdef class TestEntity(MovingEntity):
     cdef bint is_green
     def __init__(self,
                  object app_handler,
-                 str group_name,
-                 Coordinates coordinates,
                  EntityManager entity_manager,
-                 int radius,
-                 int timer_group=1):
+                 str group_name = "default",
+                 Coordinates coordinates = Coordinates(0.0, 0.0, 40, 40),
+                 int radius = 20,
+                 int timer_group=120):
         super().__init__(app_handler, group_name, coordinates, entity_manager, radius, timer_group)
         self.timer_group = 120
         size = (self.coordinates.width, self.coordinates.height)
@@ -503,14 +520,14 @@ cdef class TestEntity(MovingEntity):
         self.y_speed += random.uniform(-10, 10)
 
     def refresh(self):
-        super().refresh()
         if self.collide_list:
             if self.is_green:
                 self.is_green = False
-                self.load_image(self.red_image)
+                self.load_sdl_image(self.red_image)
         else:
-            self.load_image(self.green_image)
+            self.load_sdl_image(self.green_image)
             self.is_green = True
+        super().refresh()
         self.collide_list = []
 
 def red_color():

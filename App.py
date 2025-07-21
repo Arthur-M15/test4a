@@ -2,10 +2,8 @@ import pygame.mouse
 import sys
 from Map import *
 
-#from common.entities.properties.TestEntityX import *
-#from common.entities.properties.TestEntityX_c import *
-from common.entities.Entity_c3 import BaseSprite, TestEntity
-#from common.entities.Entity_c import BaseSprite
+import common.entities.Entity_c3 as CythonEntity
+
 from test_tools import *
 
 
@@ -27,7 +25,7 @@ class AppHandler:
         self.detection_y_start = self.coord_y - self.detection_range
         self.detection_x_end = self.coord_x + self.detection_range
         self.detection_y_end = self.coord_y + self.detection_range
-        self.cam_speed = 50
+        self.cam_speed = 1
         self.cam_x_retenue = 0.0
         self.cam_y_retenue = 0.0
 
@@ -57,6 +55,7 @@ class AppHandler:
         self.logger = AppInformation(self)
 
         test_size = 20
+        #self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager))
         #[self.map.entity_manager.add(TestEntity4(self, 0.0, 0.0)) for _ in range(10000)]
         #[self.map.entity_manager.add(TestEntity5(self, 0.0, 0.0)) for _ in range(5000)]
 
@@ -157,7 +156,7 @@ class AppHandler:
         self.update_zone()
         self.interact()
         self.update_chunks()
-        self.map.entity_manager.update()
+        self.map.entity_manager.execute()
         self.map.manager.update()
         self.update_sprite_groups()
         self.sort_sprite_group()

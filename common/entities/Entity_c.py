@@ -350,24 +350,6 @@ class NearbyZones:
         return [(zone_coords[0]+grid_coordinates[0], zone_coords[1]+grid_coordinates[1]) for zone_coords in self.mask2[way][:mask_length]]
 
 
-    def get_zones3(self, coordinates: Tuple[float, float], grid_coordinates: Tuple[int, int], size: int) -> Iterator[Tuple[int, int]]:
-
-        way: int = get_way(coordinates[0], coordinates[1], S.GRID_SIZE)
-        square: Dict[int, List[Tuple[int, int]]] = self.__coord_cache.get(grid_coordinates, {})
-        if square and square.get(way, {}):
-            if square.get(way) is not None:
-                yield from square.get(way)
-        """self.__coord_cache[grid_coordinates] = {
-            w: [(zone_coords[0] + grid_coordinates[0], zone_coords[1] + grid_coordinates[1]) for zone_coords in
-                self.mask2[w]] for w in range(4)}"""
-
-        self.__coord_cache.setdefault(grid_coordinates, {})[way] = [
-            (zone_coords[0] + grid_coordinates[0], zone_coords[1] + grid_coordinates[1]) for zone_coords in
-            self.mask2[way]]
-
-        yield from self.__coord_cache.get(grid_coordinates)[way]
-
-
 def get_patterns(size: int) -> List[List[List[Tuple[int, int]]]]:
     pattern_list: List[List[List[Tuple[int, int]]]] = []
     if size == 0:
