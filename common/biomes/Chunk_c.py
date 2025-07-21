@@ -14,9 +14,11 @@ class Chunk(CythonEntity.PyBaseSprite):
     neighbor_chunk: Dict[str, Dict[str, Any]]
     def __init__(self, app_handler, coord_mpc: Tuple[int, int], biome: Any, neighbor_chunk: Dict[str, Dict[str, Any]]) -> None:
         size = app_handler.map.biome_manager.chunk_rect_size
-        float_coord_x: float = float(coord_mpc[0])
-        float_coord_y: float = float(coord_mpc[1])
-        super().__init__(app_handler, "chunk", float_coord_x, float_coord_y, size, size)
+        self.chunk_x: int = coord_mpc[0]
+        self.chunk_y: int = coord_mpc[1]
+        new_x = self.chunk_x * Settings.CHUNK_PIXEL_WIDTH
+        new_y = self.chunk_y * Settings.CHUNK_PIXEL_WIDTH
+        super().__init__(app_handler, "chunk", new_x, new_y, size, size)
         self.app_handler = app_handler
         self.variation: float = Settings.CHUNK_VARIATIONS
         self.tiles: List[List[float]] = []
@@ -25,12 +27,6 @@ class Chunk(CythonEntity.PyBaseSprite):
         self.left_signal: List[float] = []
         self.right_signal: List[float] = []
         self.biome = biome
-        self.chunk_x: int = coord_mpc[0]
-        self.chunk_y: int = coord_mpc[1]
-
-        new_x = self.chunk_x * Settings.CHUNK_PIXEL_WIDTH
-        new_y = self.chunk_y * Settings.CHUNK_PIXEL_WIDTH
-        self.set_coordinates(new_x, new_y)
 
         self.frontier_biome: Optional[str] = None
         self.__get_frontier_biome()

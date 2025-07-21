@@ -1,6 +1,5 @@
-CYTHON_TRACE = 1
-
 # cython: language_level=3
+
 import random
 from argparse import ArgumentError
 from libc.math cimport sqrt
@@ -24,13 +23,23 @@ cdef struct IntQuatuor:
     int x_end
     int y_end
 
-cdef class Coordinates:
-    cdef public double x
-    cdef public double y
-    cdef public int width
-    cdef public int height
+class PyCoordinates(Coordinates):
+    def __init__(self, x, y ,w, h):
+        xc = <double>x
+        yc = <double>y
+        wc = <int>w
+        hc = <int>h
+        super().__init__(xc, yc, wc, hc)
+        print(x, y ,w, h)
 
-    def __cinit__(self, double x_val=0.0, double y_val=0.0, int width_v=0, int height_v=0):
+
+cdef class Coordinates:
+    cdef double x
+    cdef double y
+    cdef int width
+    cdef int height
+
+    def __init__(self, double x_val, double y_val, int width_v, int height_v):
         self.x = x_val
         self.y = y_val
         self.width = width_v
@@ -68,17 +77,18 @@ class PyBaseSprite(BaseSprite):
     def set_coordinates(self, x, y):
         self.coordinates.x = <double>x
         self.coordinates.y = <double>y
-
-    def set_size(self, w, h):
-        self.coordinates.w = <double>w
-        self.coordinates.h = <double>h
+        self.update()
 
 
 cdef class BaseSprite:
     cdef object app_handler
     cdef public Coordinates coordinates
-    cdef public double x
-    cdef public double y
+    cdef double x_c, y_c
+    cdef public float x, y
+    cdef object image
+    cdef object rect
+    cdef bint in_sprite_list
+    cdef str group_name
     def __init__(self,
                  object app_handler,
                  group_name,
@@ -87,6 +97,8 @@ cdef class BaseSprite:
         self.image = None
         self.rect = None
         self.coordinates = coord
+        self.x_c = 0.0
+        self.y_c = 0.0
         self.x = 0.0
         self.y = 0.0
         self.in_sprite_list = False
@@ -106,9 +118,12 @@ cdef class BaseSprite:
             screen_dim = self.app_handler.map.entity_manager.window_dimensions
             screen_x_start = screen_dim.x_start
             screen_y_start = screen_dim.y_start
-            self.x = <int>(self.coordinates.x - screen_x_start)
-            self.y = <int>(self.coordinates.y - screen_y_start)
-            self.rect.center = self.x + (self.coordinates.width // 2), self.y + (self.coordinates.height // 2)
+            self.x_c = <int>(self.coordinates.x - screen_x_start)
+            self.y_c = <int>(self.coordinates.y - screen_y_start)
+            self.rect.center = self.x_c + (self.coordinates.width // 2), self.y_c + (self.coordinates.height // 2)
+            self.x = int(self.x_c)
+            self.y = int(self.y_c)
+
 
     def load_on_screen(self):
         if self.image is not None and self.rect is not None:
@@ -156,7 +171,7 @@ cdef class StaticEntity(BaseSprite):
     #global env. variables:
     cdef int SPRITE_MARGIN
     def __init__(self,
-                 object app_handler,
+                 app_handler,
                  str group_name,
                  Coordinates coordinates,
                  EntityManager entity_manager,
@@ -216,7 +231,7 @@ cdef class MovingEntity(StaticEntity):
     cdef IntPair dynamic_grid
     cdef IntPair giant_grid
     def __init__(self,
-                 object app_handler,
+                 app_handler,
                  str group_name,
                  Coordinates coordinates,
                  EntityManager entity_manager,
@@ -361,7 +376,7 @@ cdef class EntityManager:
 
     def execute(self):
         self.frame_counter += 1
-        self.get_window_dimensions()
+        self.window_dimensions = self.get_window_dimensions()
         self.process_entities()
         self.collide_elements()
 
@@ -473,9 +488,9 @@ cdef class EntityManager:
             add_grid_size = self.GRID_SIZE // 2
 
         entity_list = []
-        x, y = m_entity.coordinates.x, m_entity.coordinates.y
+        x, y = m_entity.coordinates.x_c, m_entity.coordinates.y_c
         for coord in <list>self.get_grid_occupation(m_entity.coordinates, m_entity.radius + add_grid_size, grid_size):
-            coord_x, coord_y = coord.x, coord.y
+            coord_x, coord_y = coord.x_c, coord.y_c
             entity_list.extend(type_entities_list[coord_x][coord_y])
         for s_entity in entity_list:
             if s_entity.radius + m_entity.radius <= s_entity.coordinates.get_distance(x, y):
@@ -499,19 +514,21 @@ cdef class TestEntity(MovingEntity):
     def __init__(self,
                  object app_handler,
                  EntityManager entity_manager,
+                 Coordinates coordinates,
                  str group_name = "default",
-                 Coordinates coordinates = Coordinates(0.0, 0.0, 40, 40),
                  int radius = 20,
                  int timer_group=120):
+        #todo later : modifier coordinates car il y a    des incohérences avec les valeurys. Refaire le système de coordonnées avec 4 self. au lieux d'un self.coordinates
         super().__init__(app_handler, group_name, coordinates, entity_manager, radius, timer_group)
         self.timer_group = 120
         size = (self.coordinates.width, self.coordinates.height)
+        print(size)
         red_a = PILImage.new("RGBA", size, red_color())
         green_a = PILImage.new("RGBA", size, green_color())
         self.red_image = pil_to_sdl2(app_handler.app.renderer, red_a)
         self.green_image = pil_to_sdl2(app_handler.app.renderer, green_a)
 
-        self.load_image(self.green_image)
+        self.load_sdl_image(self.green_image)
         self.is_green = <bint>1
 
     def process(self):

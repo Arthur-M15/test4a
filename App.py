@@ -55,9 +55,11 @@ class AppHandler:
         self.logger = AppInformation(self)
 
         test_size = 20
-        #self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager))
+        coord = CythonEntity.PyCoordinates(0.0, 0.0, test_size, test_size)
+        self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, coordinates=coord))
         #[self.map.entity_manager.add(TestEntity4(self, 0.0, 0.0)) for _ in range(10000)]
         #[self.map.entity_manager.add(TestEntity5(self, 0.0, 0.0)) for _ in range(5000)]
+        pass
 
     def set_screen_size(self):
         self.zoom_factor = self.get_zoom()
@@ -139,9 +141,9 @@ class AppHandler:
         for key, group in self.group_list.items():
             if group.spritedict:
                 sorted_in_group_x = {sprite: value for sprite, value in sorted(group.spritedict.items(),
-                                                                               key=lambda item: item[0].x)}
+                                                                               key=lambda item: item[0].x_c)}
                 sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(),
-                                                                             key=lambda item: item[0].y)}
+                                                                             key=lambda item: item[0].y_c)}
                 self.group_list.get(key).spritedict = sorted_in_group
 
     def sort_sprite_group(self):

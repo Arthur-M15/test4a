@@ -5,7 +5,6 @@ setup(
     package=["common/entities"],
     ext_modules=cythonize(
         ["common/entities/Entity_c3.pyx"],
-        language_level="3",
-        gdb_debug=True
+        language_level="3"
     ),
 )
