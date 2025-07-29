@@ -1,3 +1,5 @@
+import math
+
 import pygame.mouse
 import sys
 from Map import *
@@ -53,10 +55,17 @@ class AppHandler:
 
         # Tests:
         self.logger = AppInformation(self)
+        #TODO
+        test_size = 1000
+        sq_size = int(math.sqrt(test_size))
+        half_size = sq_size // 2
+        [self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i*200//half_size, j*200//half_size, is_moving=False)) for i in
+         range(-half_size, half_size) for j in range(-half_size, half_size)]
+        #[self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i, 0)) for i in range(-300, 300, 100)]
+        #entity = CythonEntity.TestEntity(self, self.map.entity_manager, 0, 0, is_moving=True)
+        #self.map.entity_manager.add(entity)
 
-        test_size = 20
-        coord = CythonEntity.PyCoordinates(0.0, 0.0, test_size, test_size)
-        self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, coordinates=coord))
+        self.logger.print_info()
         #[self.map.entity_manager.add(TestEntity4(self, 0.0, 0.0)) for _ in range(10000)]
         #[self.map.entity_manager.add(TestEntity5(self, 0.0, 0.0)) for _ in range(5000)]
         pass
@@ -110,13 +119,13 @@ class AppHandler:
     def interact(self):
         # Camera movement:
         if 'up' in game_app.keybind:
-            self.coord_y += self.get_cam_shift("y", -1)
+            self.coord_y += self.get_cam_shift("y", -BASE_SPEED / (self.app.clock.get_fps() + 1))
         if 'down' in game_app.keybind:
-            self.coord_y += self.get_cam_shift("y", 1)
+            self.coord_y += self.get_cam_shift("y", BASE_SPEED / (self.app.clock.get_fps() + 1))
         if 'left' in game_app.keybind:
-            self.coord_x += self.get_cam_shift("x", -1)
+            self.coord_x += self.get_cam_shift("x", -BASE_SPEED / (self.app.clock.get_fps() + 1))
         if 'right' in game_app.keybind:
-            self.coord_x += self.get_cam_shift("x", 1)
+            self.coord_x += self.get_cam_shift("x", BASE_SPEED / (self.app.clock.get_fps() + 1))
 
         # Camera zoom:
         if 'mouse_up' in game_app.keybind:
@@ -232,6 +241,7 @@ class AppInformation:
         self.min_fps = 9999
         self.total_tiles = 0
         self.function_delay = 0
+        self.collide_entity_list = []
 
     def update_fps(self):
         fps = self.app_handler.app.get_fps()
@@ -250,7 +260,15 @@ class AppInformation:
         self.update_fps()
         self.update_sprite_count()
 
-    def print_info(self, sprites = True, tiles = False, fps = True, minimum_fps = True, coordinates = True, corner_coordinates = True, function_delay=True):
+    def print_info(self,
+                   sprites = True,
+                   tiles = False,
+                   fps = True,
+                   minimum_fps = True,
+                   coordinates = True,
+                   corner_coordinates = True,
+                   function_delay=True,
+                   collide_entity_list=False):
         self.update_information()
         info_list = []
         if sprites:
@@ -267,6 +285,8 @@ class AppInformation:
             info_list.append(f"Corner: {normalize_text(f"({self.app_handler.screen_x_start}, {self.app_handler.screen_y_start})", 16)}; ")
         if function_delay:
             info_list.append(f"Function Delay: {normalize_text(self.function_delay*1000, 8)} (ms); ")
+        if collide_entity_list:
+            info_list.append(f"collide_entity_list: {self.collide_entity_list}; ")
         infos = "".join(info_list)
         print(f"\r{infos}", end='')
 
@@ -279,11 +299,11 @@ class App:
         self.renderer = Renderer(self.window)           # Rendering the content in the window
         self.renderer.draw_color = (0, 0, 0, 255)       # Fill it with black
         self.clock = pg.time.Clock()
-        self.app_handler = AppHandler(self)
         self.dt = 0.0
         self.keybind = {}
         self.fps = []
         self.scale = 1
+        self.app_handler = AppHandler(self)
 
     def update_screen(self):
         self.dt = self.clock.tick(MAX_FPS) * 0.001  # Time for each frame

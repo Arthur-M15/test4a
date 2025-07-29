@@ -1,6 +1,7 @@
 # cython: language_level=3
 
 import random
+from libc.stdlib cimport malloc, free
 from argparse import ArgumentError
 from libc.math cimport sqrt
 
@@ -9,7 +10,7 @@ from common.biomes.properties import pil_to_sdl2
 
 import Settings as S
 
-cdef struct DoublePair:
+cdef public struct DoublePair:
     double x
     double y
 
@@ -17,13 +18,54 @@ cdef struct IntPair:
     int x
     int y
 
+cdef struct IntPairList:
+    IntPair* data
+    int size
+
+cdef class IntPairList2:
+    cdef int size
+    cdef IntPair* lst
+    def __cinit__(self, int size):
+        self.size = size
+        self.lst = <IntPair*>malloc(size*sizeof(IntPair))
+    cdef set(self, int key, int x, int y):
+        if key < 0 or key >= self.size:
+            raise IndexError(f"Index out of bounds: key={key}; size={self.size}")
+        cdef IntPair ip
+        ip.x, ip.y = x, y
+        self.lst[key] = ip
+
+    cdef IntPair get_item(self, int i):
+        if i >= self.size or i < 0:
+            IndexError(f"Index out of bounds: i={i}; size={self.size}")
+        cdef IntPair v
+        v = self.lst[i]
+        return v
+
+    '''cdef IntPair next(self):
+        if self.counter >= self.size:
+            IndexError(f"Index out of bounds: counter={self.counter}; size={self.size}")
+        cdef IntPair v
+        v = self.lst[self.counter]
+        self.counter += 1
+        return v
+'''
+
+    def __dealloc__(self):
+        """
+        Liberate the memory used by self.grid when this object dies.
+        """
+        if self.lst != NULL:
+            free(self.lst)
+            self.lst = NULL
+
 cdef struct IntQuatuor:
     int x_start
     int y_start
     int x_end
     int y_end
 
-class PyCoordinates(Coordinates):
+"""class PyCoordinates(Coordinates):
     def __init__(self, x, y ,w, h):
         xc = <double>x
         yc = <double>y
@@ -59,7 +101,7 @@ cdef class Coordinates:
     cdef IntPair get_size(self):
         cdef IntPair s
         s.x, s.y = self.width, self.height
-        return s
+        return s"""
 
 
 class PyBaseSprite(BaseSprite):
@@ -67,41 +109,49 @@ class PyBaseSprite(BaseSprite):
     BaseSprite interface for python calls
     """
     def __init__(self, app_handler, group_name, x, y, w, h):
-        xc = <double>x
-        yc = <double>y
-        wc = <int>w
-        hc = <int>h
-        c = Coordinates(xc, yc, wc, hc)
-        super().__init__(app_handler, group_name, c)
+        cdef DoublePair coord
+        cdef IntPair size
+        coord.x = <double>x
+        coord.y = <double>y
+        size.x = <int>w
+        size.y = <int>h
+        super().__init__(app_handler, group_name, x, y, w, h)
 
     def set_coordinates(self, x, y):
-        self.coordinates.x = <double>x
-        self.coordinates.y = <double>y
+        self.coordinates_x = <double>x
+        self.coordinates_y = <double>y
         self.update()
 
 
 cdef class BaseSprite:
-    cdef object app_handler
-    cdef public Coordinates coordinates
-    cdef double x_c, y_c
-    cdef public float x, y
-    cdef object image
-    cdef object rect
-    cdef bint in_sprite_list
-    cdef str group_name
+    cdef public object app_handler
+    cdef public double coordinates_x
+    cdef public double coordinates_y
+    cdef public int size_x
+    cdef public int size_y
+    cdef public int x, y
+    cdef public object image
+    cdef public object rect
+    cdef public bint in_sprite_list, keep_image
+    cdef public str group_name
     def __init__(self,
                  object app_handler,
                  group_name,
-                 Coordinates coord):
+                 double coordinates_x,
+                 double coordinates_y,
+                 int size_x,
+                 int size_y):
         self.app_handler = app_handler
         self.image = None
         self.rect = None
-        self.coordinates = coord
-        self.x_c = 0.0
-        self.y_c = 0.0
-        self.x = 0.0
-        self.y = 0.0
+        self.coordinates_x = coordinates_x
+        self.coordinates_y = coordinates_y
+        self.size_x = size_x
+        self.size_y = size_y
+        self.x = 0
+        self.y = 0
         self.in_sprite_list = False
+        self.keep_image = False
         if group_name not in app_handler.group_list.keys():
             group_name = "default"
             print("group not found")
@@ -118,11 +168,9 @@ cdef class BaseSprite:
             screen_dim = self.app_handler.map.entity_manager.window_dimensions
             screen_x_start = screen_dim.x_start
             screen_y_start = screen_dim.y_start
-            self.x_c = <int>(self.coordinates.x - screen_x_start)
-            self.y_c = <int>(self.coordinates.y - screen_y_start)
-            self.rect.center = self.x_c + (self.coordinates.width // 2), self.y_c + (self.coordinates.height // 2)
-            self.x = int(self.x_c)
-            self.y = int(self.y_c)
+            self.x = <int>(self.coordinates_x - screen_x_start)
+            self.y = <int>(self.coordinates_y - screen_y_start)
+            self.rect.center = self.x + (self.size_x // 2), self.y + (self.size_y // 2)
 
 
     def load_on_screen(self):
@@ -132,21 +180,16 @@ cdef class BaseSprite:
         else:
             raise Exception(f"Can't load sprite on screen \n self.rect : {self.rect}\n self.image : {self.image}")
 
-    def unload_from_screen(self, keep_image: bool = False):
+    def unload_from_screen(self):
         if self.in_sprite_list:
             self.in_sprite_list = False
             self.app_handler.group_list.get(self.group_name).spritedict.pop(self, None)
-            if not keep_image:
+            if not self.keep_image:
                 self.image = None
                 self.rect = None
 
     def load_image(self, pil_image):
-        pass
-        #image = pil_to_sdl2(self.app_handler.app.renderer, pil_image)
-        #self.load_sdl_image(image)
-
-    def load_sdl_image(self, sdl_image):
-        self.image = sdl_image
+        self.image = pil_to_sdl2(self.app_handler.app.renderer, pil_image)
         self.rect = self.image.get_rect()
         self.load_on_screen()
 
@@ -155,29 +198,34 @@ cdef class BaseSprite:
         #self.image = pil_to_sdl2(self.app_handler.app.renderer, new_image)
         #self.rect = self.image.get_rect()
 
-
 cdef class StaticEntity(BaseSprite):
-    cdef EntityManager entity_manager
-    cdef int timer_group
-    cdef int radius
-    cdef list sub_process_list
-    cdef int id
-    cdef int counter
-    cdef bint is_giant
-    cdef list collide_list
-    cdef list link_id_list
-    cdef list[IntPair] grid
+    cdef public EntityManager entity_manager
+    cdef public int timer_group
+    cdef public int radius
+    cdef public list sub_process_list
+    cdef public int id
+    cdef public int counter
+    cdef public bint is_giant
+    cdef public list collide_list
+    cdef public list link_id_list
+    cdef public int image_id
+
+    #need to free:
+    cdef IntPairList2 grid
 
     #global env. variables:
     cdef int SPRITE_MARGIN
     def __init__(self,
-                 app_handler,
+                 object app_handler,
                  str group_name,
-                 Coordinates coordinates,
+                 double coordinates_x,
+                 double coordinates_y,
+                 int size_x,
+                 int size_y,
                  EntityManager entity_manager,
                  int radius,
                  int timer_group = 1):
-        super().__init__(app_handler, group_name, coordinates)
+        super().__init__(app_handler, group_name, coordinates_x, coordinates_y, size_x, size_y)
         self.entity_manager = entity_manager
         self.radius = radius
         self.timer_group = timer_group
@@ -188,8 +236,8 @@ cdef class StaticEntity(BaseSprite):
             raise ArgumentError(f"Radius above limit size: {self.radius} >= {self.entity_manager.GIANT_GRID}.")
         self.is_giant = <bint>(2*self.radius >= S.GRID_SIZE)
         self.collide_list = []
-        a  = self.entity_manager.get_grid_occupation(self.coordinates, self.radius)
-        self.grid = <list[IntPair]>self.entity_manager.get_grid_occupation(self.coordinates, self.radius)
+        self.grid = self.entity_manager.get_grid_occupation(self.coordinates_x, self.coordinates_y, self.radius)
+        self.image_id = 0
 
         #global env. variables:
         self.SPRITE_MARGIN = S.SPRITE_MARGIN
@@ -199,12 +247,12 @@ cdef class StaticEntity(BaseSprite):
         cdef int y_s = self.entity_manager.window_dimensions.y_start
         cdef int x_e
         cdef int y_e
-        if (self.coordinates.x + self.coordinates.width + self.SPRITE_MARGIN >= x_s and
-                self.coordinates.y + self.coordinates.height + self.SPRITE_MARGIN >= y_s):
+        if (self.coordinates_x + self.size_x + self.SPRITE_MARGIN >= x_s and
+                self.coordinates_y + self.size_y + self.SPRITE_MARGIN >= y_s):
             x_e = self.entity_manager.window_dimensions.x_end
             y_e = self.entity_manager.window_dimensions.y_end
-            if (self.coordinates.x - self.SPRITE_MARGIN <= x_e and
-                    self.coordinates.y - self.SPRITE_MARGIN <= y_e):
+            if (self.coordinates_x - self.SPRITE_MARGIN <= x_e and
+                    self.coordinates_y - self.SPRITE_MARGIN <= y_e):
                 return True
         return False
 
@@ -214,8 +262,11 @@ cdef class StaticEntity(BaseSprite):
         """
         self.counter += 1
         if self.in_sprite_list and not self.pos_is_on_screen():
-            self.unload_from_screen(keep_image=True)
+            self.unload_from_screen()
         elif not self.in_sprite_list and self.pos_is_on_screen():
+            if self.image is None or self.rect is None:
+                image_list = self.entity_manager.image_bank[self.image_id]
+                self.load_image(image_list[0])
             self.load_on_screen()
 
     cdef void process(self):
@@ -224,25 +275,48 @@ cdef class StaticEntity(BaseSprite):
         """
         pass
 
+    cdef object load_current_pil_image(self):
+        if self.
+            pass
+    # todo : continuer ce code : si l'object quitte l'écran,
+    # todo : on lui affecte la première image de la banque et reste sur vert tout le temps.
+    # todo : Trouver une solution pour charger la bonne image si est sur l'écran.
+
+    '''def __dealloc__(self):
+        """
+        Liberate the memory used by self.grid when this object dies.
+        """
+        if self.grid.data != NULL:
+            free(self.grid.data)
+            self.grid.data = NULL'''
+
 
 cdef class MovingEntity(StaticEntity):
-    cdef double x_speed
-    cdef double y_speed
-    cdef IntPair dynamic_grid
-    cdef IntPair giant_grid
+    cdef public double x_speed
+    cdef public double y_speed
+    cdef public int dynamic_grid_x
+    cdef public int dynamic_grid_y
+    cdef public int giant_grid_x
+    cdef public int giant_grid_y
     def __init__(self,
-                 app_handler,
+                 object app_handler,
                  str group_name,
-                 Coordinates coordinates,
+                 double coordinates_x,
+                 double coordinates_y,
+                 int size_x,
+                 int size_y,
                  EntityManager entity_manager,
                  int radius,
                  int timer_group = 1):
-        super().__init__(app_handler, group_name, coordinates, entity_manager, radius, timer_group)
-        self.grid = []
+        super().__init__(app_handler, group_name, coordinates_x, coordinates_y, size_x, size_y, entity_manager, radius, timer_group)
         self.x_speed = 0.0
         self.y_speed = 0.0
-        self.dynamic_grid = self.entity_manager.get_grid(self.coordinates)
-        self.giant_grid = self.entity_manager.get_giant_grid(self.coordinates, self.is_giant)
+        cdef IntPair dynamic_grid = self.entity_manager.get_grid(self.coordinates_x, self.coordinates_y)
+        self.dynamic_grid_x = dynamic_grid.x
+        self.dynamic_grid_y = dynamic_grid.y
+        cdef IntPair giant_grid = self.entity_manager.get_giant_grid(self.coordinates_x, self.coordinates_y, self.is_giant)
+        self.giant_grid_x = giant_grid.x
+        self.giant_grid_y = giant_grid.y
 
     cdef void set_speed(self, double x_speed, double y_speed):
         self.x_speed = x_speed
@@ -253,22 +327,23 @@ cdef class MovingEntity(StaticEntity):
         self.y_speed += y_speed
 
     cdef void refresh(self):
-        self.coordinates.x += self.x_speed
-        self.coordinates.y += self.y_speed
+        self.coordinates_x += self.x_speed
+        self.coordinates_y += self.y_speed
         self.entity_manager.update_grid(self)
-        super().refresh()
+        StaticEntity.refresh(self)
 
 
 cdef class EntityManager:
-    cdef object app_handler
+    cdef public object app_handler
     cdef public IntQuatuor window_dimensions
-    cdef int frame_counter
-    cdef int entity_id_counter
-    cdef dict entity_with_id
-    cdef dict entity_list_timed_at
-    cdef dict[int, dict[int, list[StaticEntity]]] entity_at
-    cdef dict[int, dict[int, list[MovingEntity]]] moving_entity_at
-    cdef dict[int, dict[int, list[MovingEntity]]] giant_at
+    cdef public int frame_counter
+    cdef public int entity_id_counter
+    cdef public dict entity_with_id
+    cdef public dict entity_list_timed_at
+    cdef public dict[int, dict[int, list[StaticEntity]]] entity_at
+    cdef public dict[int, dict[int, list[MovingEntity]]] moving_entity_at
+    cdef public dict[int, dict[int, list[MovingEntity]]] giant_at
+    cdef public dict[int, list[object]] image_bank
 
     #global env. variables:
     cdef int GRID_SIZE
@@ -285,6 +360,10 @@ cdef class EntityManager:
         self.giant_at = {}
         self.moving_entity_at = {}
 
+        test_image_green = PILImage.new("RGBA", (20, 20), green_color())
+        test_image_red = PILImage.new("RGBA", (20, 20), red_color())
+        self.image_bank = create_sprite_bank()
+
         #global env. variables:
         self.GRID_SIZE = S.GRID_SIZE
         self.GIANT_GRID_SIZE_FACTOR = S.GIANT_GRID_SIZE_FACTOR
@@ -292,67 +371,84 @@ cdef class EntityManager:
 
 
     cpdef void add(self, StaticEntity entity):
-        cdef Coordinates e_c = entity.coordinates
-        cdef IntPair zone
-        cdef IntPair grid_coord
-        if self.entity_with_id[entity.id] is None:
+        cdef double e_c_x, e_c_y
+        e_c_x = entity.coordinates_x
+        e_c_y = entity.coordinates_y
+        cdef IntPair zone, grid_coord, giant_coord
+        if self.entity_with_id.get(entity.id) is None:
             self.entity_with_id[entity.id] = entity
             self.entity_list_timed_at.setdefault(entity.timer_group, []).append(entity)
-            grid_coord = self.get_grid(e_c)
-
+            grid_coord = self.get_grid(e_c_x, e_c_y)
             if MovingEntity in type(entity).mro():
                 if entity.is_giant:
-                    self.giant_at.setdefault(self.get_giant_grid(e_c, <bint>1), []).append(entity)
+                    giant_coord = self.get_giant_grid(e_c_x, e_c_y, <bint>1)
+                    self.giant_at.setdefault(giant_coord.x, {}).setdefault(giant_coord.y, []).append(entity)
                 self.entity_at.setdefault(grid_coord.x, {}).setdefault(grid_coord.y, []).append(entity)
                 self.moving_entity_at.setdefault(grid_coord.x, {}).setdefault(grid_coord.y, []).append(entity)
             else:
-                for zone in <list[IntPair]>entity.grid:
+                for i in range(entity.grid.size):
+                    zone = entity.grid.get_item(i)
                     self.entity_at.setdefault(zone.x, {}).setdefault(zone.y, []).append(entity)
         else:
             raise ArgumentError("this entity already exists")
 
     cpdef void remove(self, StaticEntity entity):
-        cdef Coordinates e_c = entity.coordinates
+        cdef double e_c_x, e_c_y
+        e_c_x, e_c_y = entity.coordinates_x, entity.coordinates_y
         cdef IntPair zone
         cdef IntPair grid_coord
         cdef MovingEntity m_entity
-        if self.entity_with_id[entity.id] is not None:
-            grid_coord = self.get_grid(e_c)
+        if self.entity_with_id.get(entity.id) is not None:
+            grid_coord = self.get_grid(e_c_x, e_c_y)
             del self.entity_with_id[entity.id]
             self.entity_list_timed_at[entity.timer_group].remove(entity)
 
             if MovingEntity in type(entity).mro():
                 m_entity = entity
                 if m_entity.is_giant:
-                    self.giant_at[m_entity.giant_grid.x][m_entity.giant_grid.y].remove(entity)
+                    self.giant_at[m_entity.giant_grid_x][m_entity.giant_grid_y].remove(entity)
                 self.entity_at[grid_coord.x][grid_coord.y].remove(entity)
                 self.moving_entity_at[grid_coord.x][grid_coord.y].remove(entity)
             else:
-                for zone in <list[IntPair]>entity.grid:
+                for i in range(entity.grid.size):
+                    zone = entity.grid.get_item(i)
                     self.entity_at[zone.x][zone.y].remove(entity)
         else:
             raise ArgumentError("this entity already exists")
 
     cdef void update_grid(self, MovingEntity entity):
-        cdef IntPair new_grid_coord = self.get_grid(entity.coordinates)
+        cdef IntPair new_grid_coord = self.get_grid(entity.coordinates_x, entity.coordinates_y)
         cdef IntPair new_giant_grid
-        if entity.dynamic_grid.x != new_grid_coord.x or entity.dynamic_grid.y != new_grid_coord.y:
+        if entity.dynamic_grid_x != new_grid_coord.x or entity.dynamic_grid_y != new_grid_coord.y:
+            self.entity_at[entity.dynamic_grid_x][entity.dynamic_grid_y].remove(entity)
+            self.entity_at.setdefault(new_grid_coord.x, {}).setdefault(new_grid_coord.y, []).append(entity)
 
-            self.entity_at[entity.dynamic_grid].remove(entity)
-            self.entity_at.setdefault(new_grid_coord, []).append(entity)
+            self.moving_entity_at[entity.dynamic_grid_x][entity.dynamic_grid_y].remove(entity)
+            if not self.moving_entity_at[entity.dynamic_grid_x]:
+                del self.moving_entity_at[entity.dynamic_grid_x]
+            elif not self.moving_entity_at[entity.dynamic_grid_x][entity.dynamic_grid_y]:
+                del self.moving_entity_at[entity.dynamic_grid_x][entity.dynamic_grid_y]
 
-            self.moving_entity_at[entity.dynamic_grid].remove(entity)
-            if not self.moving_entity_at[entity.dynamic_grid]:
-                del self.moving_entity_at[entity.dynamic_grid]
-            self.moving_entity_at.setdefault(new_grid_coord, []).append(entity)
+            if not self.entity_at[entity.dynamic_grid_x]:
+                del self.entity_at[entity.dynamic_grid_x]
+            elif not self.entity_at[entity.dynamic_grid_x][entity.dynamic_grid_y]:
+                del self.entity_at[entity.dynamic_grid_x][entity.dynamic_grid_y]
+
+            self.moving_entity_at.setdefault(new_grid_coord.x, {}).setdefault(new_grid_coord.y, []).append(entity)
+            entity.dynamic_grid_x = new_grid_coord.x
+            entity.dynamic_grid_y = new_grid_coord.y
 
             if entity.is_giant:
-                new_giant_grid = self.get_giant_grid(entity.coordinates, <bint>1)
-                if new_giant_grid.x != entity.giant_grid.x or new_giant_grid.y != entity.giant_grid.y:
-                    self.giant_at[entity.giant_grid].remove(entity)
-                    if not self.giant_at[entity.giant_grid]:
-                        del self.giant_at[entity.giant_grid]
-                    self.giant_at[new_giant_grid].append(entity)
+                new_giant_grid = self.get_giant_grid(entity.coordinates_x, entity.coordinates_y, <bint>1)
+                if new_giant_grid.x != entity.giant_grid_x or new_giant_grid.y != entity.giant_grid_y:
+                    self.giant_at[entity.giant_grid_x][entity.giant_grid_y].remove(entity)
+                    self.giant_at.setdefault(new_giant_grid.x, {}).setdefault(new_giant_grid.y, []).append(entity)
+
+                    if not self.giant_at[entity.giant_grid_x]:
+                        del self.giant_at[entity.giant_grid_x]
+                    elif not self.giant_at[entity.giant_grid_x][entity.giant_grid_y]:
+                        del self.giant_at[entity.giant_grid_x][entity.giant_grid_y]
+
 
     """  
     # - DEFINITION - #
@@ -380,29 +476,36 @@ cdef class EntityManager:
         self.process_entities()
         self.collide_elements()
 
-
     cdef int get_new_id(self):
         self.entity_id_counter += 1
         return self.entity_id_counter
 
-    cdef list get_grid_occupation(self, Coordinates coordinates, int radius, int grid_size=-1):
+    cdef IntPairList2 get_grid_occupation(self, double coordinates_x, double coordinates_y, int radius, int grid_size=-1):
         """
         Lists the grid coordinates the entity is on.
         :return: List[IntPair]
         """
         if grid_size == -1:
             grid_size = self.GRID_SIZE
-        cdef int x_min = <int>((coordinates.x - radius)   // self.GRID_SIZE)
-        cdef int x_max = <int>((coordinates.x + radius-1) // self.GRID_SIZE)
-        cdef int y_min = <int>((coordinates.y - radius)   // self.GRID_SIZE)
-        cdef int y_max = <int>((coordinates.y + radius-1) // self.GRID_SIZE)
-        cdef list zones = []
-        cdef IntPair zone
+        cdef int x_min = <int>((coordinates_x - radius)   // self.GRID_SIZE)
+        cdef int x_max = <int>((coordinates_x + radius-1) // self.GRID_SIZE)
+        cdef int y_min = <int>((coordinates_y - radius)   // self.GRID_SIZE)
+        cdef int y_max = <int>((coordinates_y + radius-1) // self.GRID_SIZE)
+        #cdef list zones = []
+
+        cdef IntPairList2 zones
+        cdef int size = (x_max+1 - x_min) * (y_max+1 - y_min)
+        zones = IntPairList2(size)
+
         cdef int i, j
+        cdef int counter = 0
         for i in range(x_min, x_max+1):
             for j in range(y_min, y_max+1):
-                zone.x, zone.y = i, j
-                zones.append(zone)
+                zones.set(counter, i, j)
+                #zones.data[counter].x, zones.data[counter].y = i, j
+                counter += 1
+        if zones.lst == NULL:
+            raise MemoryError()
         return zones
 
     cdef IntQuatuor get_window_dimensions(self):
@@ -417,30 +520,29 @@ cdef class EntityManager:
         dim.y_end = self.app_handler.screen_y_end
         return dim
 
-    cdef IntPair get_grid(self, Coordinates coordinates):
+    cdef IntPair get_grid(self, double coordinates_x, double coordinates_y):
         """
         Calculates the coordinates for grid
-        :param coordinates: coordinates of the entity
-        :return: 
+        :param coordinates_x: coordinates of the entity on x
+        :param coordinates_y: coordinates of the entity on y
+        :return: IntPair
         """
         cdef IntPair grid_coordinates
-        grid_coordinates.x = <int>(coordinates.x // self.GRID_SIZE)
-        grid_coordinates.y = <int>(coordinates.y // self.GRID_SIZE)
+        grid_coordinates.x = <int>(coordinates_x // self.GRID_SIZE)
+        grid_coordinates.y = <int>(coordinates_y // self.GRID_SIZE)
         return grid_coordinates
 
-    cdef IntPair get_giant_grid(self, Coordinates coordinates, bint is_giant):
+    cdef IntPair get_giant_grid(self, double coordinates_x, double coordinates_y, bint is_giant):
         """
         Calculates the coordinates for the giant grid
-        :param coordinates: coordinates of the entity
-        :param is_giant: mandatory parameter when creating MovingEntity().
         :return: 
         """
         cdef IntPair giant_grid
         if not is_giant:
             giant_grid.x, giant_grid.y = 0, 0
             return giant_grid
-        giant_grid.x = <int> (coordinates.x // self.GIANT_GRID)
-        giant_grid.y = <int> (coordinates.y // self.GIANT_GRID)
+        giant_grid.x = <int>(coordinates_x // self.GIANT_GRID)
+        giant_grid.y = <int>(coordinates_y // self.GIANT_GRID)
         return giant_grid
 
     cdef void collide_elements(self):
@@ -448,35 +550,67 @@ cdef class EntityManager:
         Fetch all the moving entities of the map and append the collision between themselves.
         :return: 
         """
+        #todo later : pour la détection des collisions, faire en sorte qu'un moving entity ne soit pas sur la static grid. Ce n'est pas nécessaire.
+        # Fetch sur la staticgrid et la dynamic grid pour chaque case au lieu de mettre à jour les deux grid par entity.
         cdef MovingEntity m_entity
         cdef StaticEntity s_entity
         cdef double x, y
         cdef int coord_x, coord_y
-        cdef int counter
+        cdef int counter, i
+        cdef IntPair zone
+        cdef IntPairList2 zone_list
+        cdef list e_list
+        cdef list neighbor_static_zones
         for y_dict in self.moving_entity_at.values():
             for entity_list in y_dict.values():
-                temp_entity_list = self.entity_at[x][y][:]
+                temp_entity_list = entity_list[:]
+                neighbor_static_zones = [[] for _ in range(9)]
 
-                for m_entity in entity_list:
+                while len(temp_entity_list) > 0:
+                    m_entity = temp_entity_list.pop(0)
                     if not m_entity.is_giant:
-                        counter = 0
-                        while counter < len(temp_entity_list):
-                            s_entity = temp_entity_list[counter]
-                            if m_entity.id != s_entity.id:
-                                x, y = m_entity.coordinates.x, m_entity.coordinates.y
-                                if s_entity.radius + m_entity.radius <= s_entity.coordinates.get_distance(x, y):
-                                    s_entity.collide_list.append(m_entity)
-                                    m_entity.collide_list.append(s_entity)
-                                counter += 1
-                            else:
-                                temp_entity_list.pop(counter)
-                    else: # Giant case...
+                        ## This code collect the neighbor entities
+                        zone_list = self.get_grid_occupation(m_entity.coordinates_x, m_entity.coordinates_y, m_entity.radius)
+                        for i in range(zone_list.size):
+                            zone = zone_list.get_item(i)
+                            zone_hash = quick_cord_hash(zone.x, zone.y)
+                            if len(neighbor_static_zones[zone_hash]) > 0:
+                                if zone.x != m_entity.dynamic_grid_x and zone.y != m_entity.dynamic_grid_y:
+                                    neighbor_entity_list_x = self.entity_at.get(zone.x)
+                                    if neighbor_entity_list_x:
+                                        neighbor_entity_list = neighbor_entity_list_x.get(zone.y)
+                                        if neighbor_entity_list:
+                                            neighbor_static_zones[zone_hash] = neighbor_entity_list
+                        ##
+                        for s_entity in temp_entity_list:
+                            if s_entity.id == m_entity.id:
+                                continue
+                            x_m, y_m = m_entity.coordinates_x, m_entity.coordinates_y
+                            x_s, y_s = s_entity.coordinates_x, s_entity.coordinates_y
+                            if s_entity.radius + m_entity.radius >= get_distance(x_m, x_s, y_m, y_s):
+                                s_entity.collide_list.append(m_entity)
+                                m_entity.collide_list.append(s_entity)
+
+                        for e_list in <list>neighbor_static_zones:
+                            for s_entity in <list>e_list:
+                                x_m, y_m = m_entity.coordinates_x, m_entity.coordinates_y
+                                x_s, y_s = s_entity.coordinates_x, s_entity.coordinates_y
+                                if s_entity.radius + m_entity.radius >= get_distance(x_m, x_s, y_m, y_s):
+                                    if s_entity not in m_entity.collide_list:
+                                        m_entity.collide_list.append(s_entity)
+                                    if m_entity not in s_entity.collide_list:
+                                        s_entity.collide_list.append(m_entity)
+
+
+                            #todo next : add the cross grid collision, cause it is not handled yet. Check before collision with radius = 50
+                    else:
                         self.collide_giant(m_entity, False)
                         self.collide_giant(m_entity, True)
 
     cdef void collide_giant(self, m_entity, with_giant):
         cdef int x, y, coord_x, coord_y, grid_size, add_grid_size
         cdef list type_entities_list
+        cdef double xa, xb, ya, yb
 
         if with_giant:
             type_entities_list = self.giant_at
@@ -488,12 +622,12 @@ cdef class EntityManager:
             add_grid_size = self.GRID_SIZE // 2
 
         entity_list = []
-        x, y = m_entity.coordinates.x_c, m_entity.coordinates.y_c
-        for coord in <list>self.get_grid_occupation(m_entity.coordinates, m_entity.radius + add_grid_size, grid_size):
-            coord_x, coord_y = coord.x_c, coord.y_c
-            entity_list.extend(type_entities_list[coord_x][coord_y])
+        xb, yb = m_entity.coordinates_x, m_entity.coordinates_y
+        for coord in <list>self.get_grid_occupation(xb, yb, m_entity.radius + add_grid_size, grid_size):
+            entity_list.extend(type_entities_list[coord.x][coord.y])
         for s_entity in entity_list:
-            if s_entity.radius + m_entity.radius <= s_entity.coordinates.get_distance(x, y):
+            xa, ya = s_entity.coordinates_x, s_entity.coordinates_y
+            if s_entity.radius + m_entity.radius <= get_distance(xa, xb, ya, yb):
                 if s_entity not in m_entity.collide_list:
                     m_entity.collide_list.append(s_entity)
                 if m_entity not in s_entity.collide_list:
@@ -501,51 +635,55 @@ cdef class EntityManager:
 
 
 cdef class TestEntity(MovingEntity):
-
-    cdef object app_handler
-    cdef str group_name
-    cdef Coordinates coordinates
-    cdef EntityManager entity_manager
-    cdef int radius
-    cdef int timer_group
-    cdef object red_image
-    cdef object green_image
-    cdef bint is_green
+    cdef public bint is_green
+    cdef public bint is_moving
     def __init__(self,
                  object app_handler,
                  EntityManager entity_manager,
-                 Coordinates coordinates,
+                 coord_x, coord_y,
                  str group_name = "default",
-                 int radius = 20,
-                 int timer_group=120):
-        #todo later : modifier coordinates car il y a    des incohérences avec les valeurys. Refaire le système de coordonnées avec 4 self. au lieux d'un self.coordinates
-        super().__init__(app_handler, group_name, coordinates, entity_manager, radius, timer_group)
-        self.timer_group = 120
-        size = (self.coordinates.width, self.coordinates.height)
-        print(size)
-        red_a = PILImage.new("RGBA", size, red_color())
-        green_a = PILImage.new("RGBA", size, green_color())
-        self.red_image = pil_to_sdl2(app_handler.app.renderer, red_a)
-        self.green_image = pil_to_sdl2(app_handler.app.renderer, green_a)
-
-        self.load_sdl_image(self.green_image)
-        self.is_green = <bint>1
+                 int radius = 10,
+                 int timer_group=1200,
+                 is_moving=False):
+        distance = 10000
+        """
+        coord_x = <double>random.uniform(-distance, distance)
+        coord_y = <double>random.uniform(-distance, distance)
+        #"""
+        super().__init__(app_handler, group_name, coord_x+80, coord_y, 20, 20, entity_manager, radius, timer_group)
+        self.timer_group = timer_group
+        self.is_green = True
+        self.is_moving = <bint>is_moving
+        self.process()
 
     def process(self):
-        super().process()
-        self.x_speed += random.uniform(-10, 10)
-        self.y_speed += random.uniform(-10, 10)
+        if self.is_moving:
+            if self.x_speed >= 0:
+                self.set_speed(-0.7, 0)
+            elif self.x_speed < 0:
+                self.set_speed(0.7, 0)
+        """
+        self.x_speed += random.uniform(-1, 1)
+        self.y_speed += random.uniform(-1, 1)"""
 
     def refresh(self):
-        if self.collide_list:
+        self.app_handler.logger.collide_entity_list = [e.id for e in self.collide_list]
+        if len(self.collide_list) > 0:
             if self.is_green:
                 self.is_green = False
-                self.load_sdl_image(self.red_image)
+                #image = PILImage.new("RGBA", (20, 20), red_color())
+                image = self.entity_manager.image_bank[1][0]
+                self.load_image(image)
         else:
-            self.load_sdl_image(self.green_image)
-            self.is_green = True
-        super().refresh()
-        self.collide_list = []
+            if not self.is_green:
+                self.is_green = True
+                print(self)
+                #image = PILImage.new("RGBA", (20, 20), green_color())
+                image = self.entity_manager.image_bank[0][0]
+                self.load_image(image)
+
+        MovingEntity.refresh(self)
+        self.collide_list.clear()
 
 def red_color():
     return 255, 0, 0, 255
@@ -553,3 +691,39 @@ def red_color():
 def green_color():
     return 0, 255, 0, 255
 
+cdef int get_distance(double xa, double xb, double ya, double yb):
+    """
+    Calculates the distance between two 2D points.
+        :param xa: Re(a)
+        :param xb: Re(b)
+        :param ya: Im(a)
+        :param yb: Im(b)
+        :return: integer of the distance
+    """
+    cdef double delta_x = xb - xa
+    cdef double delta_y = yb - ya
+    return <int>sqrt((delta_x * delta_x) + (delta_y * delta_y))
+
+cdef DoublePair dp_from_tuple(a, b):
+    cdef DoublePair r
+    r.x, r.y = <double>a, <double>b
+    return r
+
+def create_sprite_bank():
+    # todo later : change this function for a dynamic one
+    sprite_dict = {
+        0: [PILImage.new("RGBA", (20, 20), green_color())],
+        1: [PILImage.new("RGBA", (20, 20), red_color())]
+    }
+    return sprite_dict
+
+cdef int quick_cord_hash(int x, int y, int size=3):
+    """
+    Function that returns a hash according to its coordinates and hash size.
+    :param x: coordinates of the object on x
+    :param y: coordinates of the object on y
+    :param size: Must be odd and >= 3
+    :return: quick hash based on size^2 number of possibilities
+    """
+    x_a, y_a = x % 3, y % 3
+    return (size * x_a) + y_a
