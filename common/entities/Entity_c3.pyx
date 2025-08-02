@@ -208,6 +208,7 @@ cdef class StaticEntity(BaseSprite):
     cdef public bint is_giant
     cdef public list collide_list
     cdef public list link_id_list
+    cdef public int bank_image_id
     cdef public int image_id
 
     #need to free:
@@ -237,7 +238,10 @@ cdef class StaticEntity(BaseSprite):
         self.is_giant = <bint>(2*self.radius >= S.GRID_SIZE)
         self.collide_list = []
         self.grid = self.entity_manager.get_grid_occupation(self.coordinates_x, self.coordinates_y, self.radius)
+
+        #default value; must be reset after super()
         self.image_id = 0
+        self.bank_image_id = 0
 
         #global env. variables:
         self.SPRITE_MARGIN = S.SPRITE_MARGIN
@@ -265,8 +269,8 @@ cdef class StaticEntity(BaseSprite):
             self.unload_from_screen()
         elif not self.in_sprite_list and self.pos_is_on_screen():
             if self.image is None or self.rect is None:
-                image_list = self.entity_manager.image_bank[self.image_id]
-                self.load_image(image_list[0])
+                image_list = self.entity_manager.image_bank[self.bank_image_id]
+                self.load_image(image_list[self.image_id])
             self.load_on_screen()
 
     cdef void process(self):
@@ -275,9 +279,9 @@ cdef class StaticEntity(BaseSprite):
         """
         pass
 
-    cdef object load_current_pil_image(self):
+    """cdef object load_current_pil_image(self):
         if self.
-            pass
+            pass"""
     # todo : continuer ce code : si l'object quitte l'écran,
     # todo : on lui affecte la première image de la banque et reste sur vert tout le temps.
     # todo : Trouver une solution pour charger la bonne image si est sur l'écran.
@@ -314,7 +318,7 @@ cdef class MovingEntity(StaticEntity):
         cdef IntPair dynamic_grid = self.entity_manager.get_grid(self.coordinates_x, self.coordinates_y)
         self.dynamic_grid_x = dynamic_grid.x
         self.dynamic_grid_y = dynamic_grid.y
-        cdef IntPair giant_grid = self.entity_manager.get_giant_grid(self.coordinates_x, self.coordinates_y, self.is_giant)
+        cdef IntPair giant_grid = self.entity_manager.get_giant_grid(self.coordinates_x, self.coordinates_y)
         self.giant_grid_x = giant_grid.x
         self.giant_grid_y = giant_grid.y
 
@@ -371,18 +375,17 @@ cdef class EntityManager:
 
 
     cpdef void add(self, StaticEntity entity):
-        cdef double e_c_x, e_c_y
-        e_c_x = entity.coordinates_x
-        e_c_y = entity.coordinates_y
+        cdef MovingEntity m_entity
         cdef IntPair zone, grid_coord, giant_coord
         if self.entity_with_id.get(entity.id) is None:
             self.entity_with_id[entity.id] = entity
             self.entity_list_timed_at.setdefault(entity.timer_group, []).append(entity)
-            grid_coord = self.get_grid(e_c_x, e_c_y)
             if MovingEntity in type(entity).mro():
-                if entity.is_giant:
-                    giant_coord = self.get_giant_grid(e_c_x, e_c_y, <bint>1)
-                    self.giant_at.setdefault(giant_coord.x, {}).setdefault(giant_coord.y, []).append(entity)
+                m_entity = <MovingEntity>entity
+                grid_coord.x = m_entity.dynamic_grid_x
+                grid_coord.y = m_entity.dynamic_grid_y
+                if m_entity.is_giant:
+                    self.giant_at.setdefault(m_entity.giant_grid_x, {}).setdefault(m_entity.giant_grid_y, []).append(m_entity)
                 self.entity_at.setdefault(grid_coord.x, {}).setdefault(grid_coord.y, []).append(entity)
                 self.moving_entity_at.setdefault(grid_coord.x, {}).setdefault(grid_coord.y, []).append(entity)
             else:
@@ -393,21 +396,18 @@ cdef class EntityManager:
             raise ArgumentError("this entity already exists")
 
     cpdef void remove(self, StaticEntity entity):
-        cdef double e_c_x, e_c_y
-        e_c_x, e_c_y = entity.coordinates_x, entity.coordinates_y
         cdef IntPair zone
         cdef IntPair grid_coord
         cdef MovingEntity m_entity
         if self.entity_with_id.get(entity.id) is not None:
-            grid_coord = self.get_grid(e_c_x, e_c_y)
             del self.entity_with_id[entity.id]
             self.entity_list_timed_at[entity.timer_group].remove(entity)
 
             if MovingEntity in type(entity).mro():
-                m_entity = entity
+                m_entity = <MovingEntity>entity
                 if m_entity.is_giant:
                     self.giant_at[m_entity.giant_grid_x][m_entity.giant_grid_y].remove(entity)
-                self.entity_at[grid_coord.x][grid_coord.y].remove(entity)
+                self.entity_at[m_entity.dynamic_grid_x][m_entity.dynamic_grid_y].remove(entity)
                 self.moving_entity_at[grid_coord.x][grid_coord.y].remove(entity)
             else:
                 for i in range(entity.grid.size):
@@ -439,7 +439,8 @@ cdef class EntityManager:
             entity.dynamic_grid_y = new_grid_coord.y
 
             if entity.is_giant:
-                new_giant_grid = self.get_giant_grid(entity.coordinates_x, entity.coordinates_y, <bint>1)
+                new_giant_grid = self.get_giant_grid(entity.coordinates_x, entity.coordinates_y)
+                #print(f"{new_giant_grid} + {entity.giant_grid_x} + {entity.giant_grid_y}")
                 if new_giant_grid.x != entity.giant_grid_x or new_giant_grid.y != entity.giant_grid_y:
                     self.giant_at[entity.giant_grid_x][entity.giant_grid_y].remove(entity)
                     self.giant_at.setdefault(new_giant_grid.x, {}).setdefault(new_giant_grid.y, []).append(entity)
@@ -448,6 +449,8 @@ cdef class EntityManager:
                         del self.giant_at[entity.giant_grid_x]
                     elif not self.giant_at[entity.giant_grid_x][entity.giant_grid_y]:
                         del self.giant_at[entity.giant_grid_x][entity.giant_grid_y]
+                    entity.giant_grid_x = new_giant_grid.x
+                    entity.giant_grid_y = new_giant_grid.y
 
 
     """  
@@ -532,15 +535,12 @@ cdef class EntityManager:
         grid_coordinates.y = <int>(coordinates_y // self.GRID_SIZE)
         return grid_coordinates
 
-    cdef IntPair get_giant_grid(self, double coordinates_x, double coordinates_y, bint is_giant):
+    cdef IntPair get_giant_grid(self, double coordinates_x, double coordinates_y):
         """
         Calculates the coordinates for the giant grid
         :return: 
         """
         cdef IntPair giant_grid
-        if not is_giant:
-            giant_grid.x, giant_grid.y = 0, 0
-            return giant_grid
         giant_grid.x = <int>(coordinates_x // self.GIANT_GRID)
         giant_grid.y = <int>(coordinates_y // self.GIANT_GRID)
         return giant_grid
@@ -593,49 +593,52 @@ cdef class EntityManager:
 
                         for e_list in <list>neighbor_static_zones:
                             for s_entity in <list>e_list:
-                                x_m, y_m = m_entity.coordinates_x, m_entity.coordinates_y
-                                x_s, y_s = s_entity.coordinates_x, s_entity.coordinates_y
-                                if s_entity.radius + m_entity.radius >= get_distance(x_m, x_s, y_m, y_s):
-                                    if s_entity not in m_entity.collide_list:
-                                        m_entity.collide_list.append(s_entity)
-                                    if m_entity not in s_entity.collide_list:
-                                        s_entity.collide_list.append(m_entity)
-
-
-                            #todo next : add the cross grid collision, cause it is not handled yet. Check before collision with radius = 50
+                                add_collision(s_entity, m_entity)
                     else:
                         self.collide_giant(m_entity, False)
                         self.collide_giant(m_entity, True)
 
     cdef void collide_giant(self, m_entity, with_giant):
         cdef int x, y, coord_x, coord_y, grid_size, add_grid_size
-        cdef list type_entities_list
+        cdef dict type_entities_dict, t_e_d_x
         cdef double xa, xb, ya, yb
+        cdef IntPairList2 grid_occupation
+        cdef IntPair coord
 
         if with_giant:
-            type_entities_list = self.giant_at
+            type_entities_dict = self.giant_at
             grid_size = self.GIANT_GRID
             add_grid_size = 0
         else:
-            type_entities_list = self.entity_at
+            type_entities_dict = self.entity_at
             grid_size = self.GRID_SIZE
             add_grid_size = self.GRID_SIZE // 2
 
         entity_list = []
         xb, yb = m_entity.coordinates_x, m_entity.coordinates_y
-        for coord in <list>self.get_grid_occupation(xb, yb, m_entity.radius + add_grid_size, grid_size):
-            entity_list.extend(type_entities_list[coord.x][coord.y])
+        grid_occupation = self.get_grid_occupation(xb, yb, m_entity.radius + add_grid_size, grid_size)
+        for i in range(grid_occupation.size):
+            coord = grid_occupation.get_item(i)
+            t_e_d_x = type_entities_dict.get(coord.x)
+            if t_e_d_x:
+                t_e_d_y = t_e_d_x.get(coord.y)
+                if t_e_d_y:
+                    entity_list.extend(t_e_d_y)
         for s_entity in entity_list:
-            xa, ya = s_entity.coordinates_x, s_entity.coordinates_y
-            if s_entity.radius + m_entity.radius <= get_distance(xa, xb, ya, yb):
-                if s_entity not in m_entity.collide_list:
-                    m_entity.collide_list.append(s_entity)
-                if m_entity not in s_entity.collide_list:
-                    s_entity.collide_list.append(m_entity)
+            add_collision(s_entity, m_entity)
 
+
+cdef void add_collision(StaticEntity s_entity, MovingEntity m_entity):
+    if s_entity.id == m_entity.id: return
+    x_m, y_m = m_entity.coordinates_x, m_entity.coordinates_y
+    x_s, y_s = s_entity.coordinates_x, s_entity.coordinates_y
+    if s_entity.radius + m_entity.radius >= get_distance(x_m, x_s, y_m, y_s):
+        if s_entity not in m_entity.collide_list: #todo next : fix get_distance() = 0 "400 + 400 = 800 | 0"
+            m_entity.collide_list.append(s_entity)
+        if m_entity not in s_entity.collide_list:
+            s_entity.collide_list.append(m_entity)
 
 cdef class TestEntity(MovingEntity):
-    cdef public bint is_green
     cdef public bint is_moving
     def __init__(self,
                  object app_handler,
@@ -652,34 +655,34 @@ cdef class TestEntity(MovingEntity):
         #"""
         super().__init__(app_handler, group_name, coord_x+80, coord_y, 20, 20, entity_manager, radius, timer_group)
         self.timer_group = timer_group
-        self.is_green = True
         self.is_moving = <bint>is_moving
         self.process()
 
     def process(self):
+        """
         if self.is_moving:
             if self.x_speed >= 0:
                 self.set_speed(-0.7, 0)
             elif self.x_speed < 0:
                 self.set_speed(0.7, 0)
-        """
+        #"""
         self.x_speed += random.uniform(-1, 1)
-        self.y_speed += random.uniform(-1, 1)"""
+        self.y_speed += random.uniform(-1, 1)#"""
 
     def refresh(self):
         self.app_handler.logger.collide_entity_list = [e.id for e in self.collide_list]
         if len(self.collide_list) > 0:
-            if self.is_green:
-                self.is_green = False
+            if self.image_id == 0:
+                self.image_id = 1
                 #image = PILImage.new("RGBA", (20, 20), red_color())
-                image = self.entity_manager.image_bank[1][0]
+
+                image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
                 self.load_image(image)
         else:
-            if not self.is_green:
-                self.is_green = True
-                print(self)
+            if self.image_id == 1:
+                self.image_id = 0
                 #image = PILImage.new("RGBA", (20, 20), green_color())
-                image = self.entity_manager.image_bank[0][0]
+                image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
                 self.load_image(image)
 
         MovingEntity.refresh(self)
@@ -712,8 +715,8 @@ cdef DoublePair dp_from_tuple(a, b):
 def create_sprite_bank():
     # todo later : change this function for a dynamic one
     sprite_dict = {
-        0: [PILImage.new("RGBA", (20, 20), green_color())],
-        1: [PILImage.new("RGBA", (20, 20), red_color())]
+        0: [PILImage.new("RGBA", (20, 20), green_color()), PILImage.new("RGBA", (20, 20), red_color())],
+        1: [PILImage.new("RGBA", (800, 800), green_color()), PILImage.new("RGBA", (800, 800), red_color())]
     }
     return sprite_dict
 
@@ -727,3 +730,22 @@ cdef int quick_cord_hash(int x, int y, int size=3):
     """
     x_a, y_a = x % 3, y % 3
     return (size * x_a) + y_a
+
+cdef class TestEntity2(TestEntity):
+    def __init__(self, object app_handler,
+                 EntityManager entity_manager,
+                 coord_x, coord_y,
+                 str group_name = "default",
+                 int radius = 400,
+                 int timer_group=1200,
+                 is_moving=False):
+        super().__init__( app_handler,
+                  entity_manager,
+                 coord_x, coord_y,
+                  group_name,
+                  radius,
+                  timer_group,
+                 is_moving)
+
+        self.bank_image_id = 1
+

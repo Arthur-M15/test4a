@@ -15,7 +15,7 @@ WIN_H: int
 WIN_SIZE: tuple[int, int]
 
 # Choose a resolution
-WIN_SIZE = WIN_W, WIN_H = 1600, 1000
+WIN_SIZE = WIN_W, WIN_H = 1000, 800
 # WIN_SIZE = WIN_W, WIN_H = 1600, 900
 # WIN_SIZE = WIN_W, WIN_H = 1920, 1080
 
@@ -23,7 +23,7 @@ WIN_SIZE = WIN_W, WIN_H = 1600, 1000
 FONT_SIZE: int = 14
 
 # FPS
-MAX_FPS: int = 100
+MAX_FPS: int = 0
 FPS_LIST_SIZE: int = 50
 
 # Map & Terrain
@@ -51,8 +51,8 @@ VARIANTS_NUMBER: int = 8
 CHUNK_THREAD_NUMBER: int = 1
 
 # Grid / Entity
-GRID_SIZE: int = 500
-GIANT_GRID_SIZE_FACTOR: int = 10
+GRID_SIZE: int = 600
+GIANT_GRID_SIZE_FACTOR: int = 5
 SPRITE_MARGIN: int = 50
 MAX_LOCAL_COUNTER: int = 60
 MAX_GRID_LAYER: int = 1

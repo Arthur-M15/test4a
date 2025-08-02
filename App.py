@@ -55,13 +55,18 @@ class AppHandler:
 
         # Tests:
         self.logger = AppInformation(self)
-        #TODO
-        test_size = 1000
+
+        test_size = 4
         sq_size = int(math.sqrt(test_size))
         half_size = sq_size // 2
-        [self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i*200//half_size, j*200//half_size, is_moving=False)) for i in
+
+
+        #self.map.entity_manager.add(CythonEntity.TestEntity2(self, self.map.entity_manager, 0,0, is_moving=True))
+
+
+        [self.map.entity_manager.add(CythonEntity.TestEntity2(self, self.map.entity_manager, i*200//half_size, j*200//half_size, is_moving=True)) for i in
          range(-half_size, half_size) for j in range(-half_size, half_size)]
-        #[self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i, 0)) for i in range(-300, 300, 100)]
+        #[self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i, 0)) for i in range(-300, 300, 10)]
         #entity = CythonEntity.TestEntity(self, self.map.entity_manager, 0, 0, is_moving=True)
         #self.map.entity_manager.add(entity)
 
