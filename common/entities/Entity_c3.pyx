@@ -10,17 +10,21 @@ from common.biomes.properties import pil_to_sdl2
 
 import Settings as S
 
+
 cdef public struct DoublePair:
     double x
     double y
+
 
 cdef struct IntPair:
     int x
     int y
 
+
 cdef struct IntPairList:
     IntPair* data
     int size
+
 
 cdef class IntPairList2:
     cdef int size
@@ -42,15 +46,6 @@ cdef class IntPairList2:
         v = self.lst[i]
         return v
 
-    '''cdef IntPair next(self):
-        if self.counter >= self.size:
-            IndexError(f"Index out of bounds: counter={self.counter}; size={self.size}")
-        cdef IntPair v
-        v = self.lst[self.counter]
-        self.counter += 1
-        return v
-'''
-
     def __dealloc__(self):
         """
         Liberate the memory used by self.grid when this object dies.
@@ -58,6 +53,7 @@ cdef class IntPairList2:
         if self.lst != NULL:
             free(self.lst)
             self.lst = NULL
+
 
 cdef struct IntQuatuor:
     int x_start
@@ -278,21 +274,6 @@ cdef class StaticEntity(BaseSprite):
         code executed with timer group
         """
         pass
-
-    """cdef object load_current_pil_image(self):
-        if self.
-            pass"""
-    # todo : continuer ce code : si l'object quitte l'écran,
-    # todo : on lui affecte la première image de la banque et reste sur vert tout le temps.
-    # todo : Trouver une solution pour charger la bonne image si est sur l'écran.
-
-    '''def __dealloc__(self):
-        """
-        Liberate the memory used by self.grid when this object dies.
-        """
-        if self.grid.data != NULL:
-            free(self.grid.data)
-            self.grid.data = NULL'''
 
 
 cdef class MovingEntity(StaticEntity):
@@ -633,7 +614,7 @@ cdef void add_collision(StaticEntity s_entity, MovingEntity m_entity):
     x_m, y_m = m_entity.coordinates_x, m_entity.coordinates_y
     x_s, y_s = s_entity.coordinates_x, s_entity.coordinates_y
     if s_entity.radius + m_entity.radius >= get_distance(x_m, x_s, y_m, y_s):
-        if s_entity not in m_entity.collide_list: #todo next : fix get_distance() = 0 "400 + 400 = 800 | 0"
+        if s_entity not in m_entity.collide_list:
             m_entity.collide_list.append(s_entity)
         if m_entity not in s_entity.collide_list:
             s_entity.collide_list.append(m_entity)
@@ -670,12 +651,10 @@ cdef class TestEntity(MovingEntity):
         self.y_speed += random.uniform(-1, 1)#"""
 
     def refresh(self):
-        self.app_handler.logger.collide_entity_list = [e.id for e in self.collide_list]
+        #self.app_handler.logger.collide_entity_list = [e.id for e in self.collide_list]
         if len(self.collide_list) > 0:
             if self.image_id == 0:
                 self.image_id = 1
-                #image = PILImage.new("RGBA", (20, 20), red_color())
-
                 image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
                 self.load_image(image)
         else:
