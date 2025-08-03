@@ -55,8 +55,11 @@ class AppHandler:
         """
         self.sprite_lock = threading.Lock()
 
-        # Tests:
+        # Logs:
         self.logger = AppInformation(self)
+
+        # Final initialisation :
+        self.set_screen_size()
 
         test_size = 4
         sq_size = int(math.sqrt(test_size))
@@ -66,12 +69,11 @@ class AppHandler:
         #self.map.entity_manager.add(CythonEntity.TestEntity2(self, self.map.entity_manager, 0,0, is_moving=True))
 
 
-        [self.map.entity_manager.add(CythonEntity.TestEntity2(self, self.map.entity_manager, i*200//half_size, j*200//half_size, is_moving=True)) for i in
-         range(-half_size, half_size) for j in range(-half_size, half_size)]
-        [self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i, 0)) for i in range(-300, 300, 10)]
+        #[self.map.entity_manager.add(CythonEntity.TestEntity2(self, self.map.entity_manager, i*200//half_size, j*200//half_size, is_moving=True)) for i in
+        # range(-half_size, half_size) for j in range(-half_size, half_size)]
+        #[self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i, 0)) for i in range(-300, 300, 10)]
         self.map.entity_manager.add(CythonEntity.TestEntity3(self, self.map.entity_manager, 0, 0))
-
-
+        pass
         #entity = CythonEntity.TestEntity(self, self.map.entity_manager, 0, 0, is_moving=True)
         #self.map.entity_manager.add(entity)
 
@@ -98,7 +100,7 @@ class AppHandler:
 
     def get_zoom(self):
         zoom_coefficient = 1.2
-        return zoom_coefficient ** -self.zoom_index
+        return (zoom_coefficient ** -self.zoom_index) * SPRITE_QUALITY
 
     def update_zone(self):
         self.detection_x_start = self.coord_x - self.detection_range

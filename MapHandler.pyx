@@ -101,14 +101,6 @@ class ProcessManager(threading.Thread):
         return True"""
 
     def collect_results(self):
-        """result = self.result_list.get()
-        result.timestamp.append(("ProcessManager: collect_results2", time.time()))
-        c_id = result.c_id
-        command = self.command_list.get(c_id)
-        command.wrap = result
-        command.is_completed = True
-        command.wrap.timestamp.append(("ProcessManager: collect_results3", time.time()))
-"""
         try:
             result = self.result_list.get_nowait()
             result.timestamp.append(("ProcessManager: collect_results2", time.time()))
@@ -160,7 +152,7 @@ class Unit(Process):
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
 
-        size = int(CHUNK_SIZE * TILE_PIXEL_SIZE + TILE_PIXEL_SIZE / 4)
+        size = int(CHUNK_SIZE * TILE_PIXEL_SIZE + TILE_PIXEL_SIZE / (4 * SPRITE_QUALITY))
         canvas = PILImage.new("RGBA", (size, size), (0, 0, 0, 0))
 
         dominance_matrix = self.frontier_biome_list[frontier_biome]

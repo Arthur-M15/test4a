@@ -5,6 +5,8 @@ from pygame._sdl2.video import Window, Renderer, Texture, Image as Pyimage
 
 from random import randrange, uniform
 
+from pygame.examples.moveit import SPRITE_WIDTH
+
 # Paths
 BIOME_SPRITE_DIR_PATH: str = "common/biomes"
 FONTS_DIR_PATH: str = "assets/fonts"
@@ -19,11 +21,14 @@ WIN_SIZE = WIN_W, WIN_H = 1000, 800
 # WIN_SIZE = WIN_W, WIN_H = 1600, 900
 # WIN_SIZE = WIN_W, WIN_H = 1920, 1080
 
+# Sprite quality
+SPRITE_QUALITY = 4 # Lower is better
+
 # Font
 FONT_SIZE: int = 14
 
 # FPS
-MAX_FPS: int = 60
+MAX_FPS: int = 120
 FPS_LIST_SIZE: int = 50
 
 # Map & Terrain

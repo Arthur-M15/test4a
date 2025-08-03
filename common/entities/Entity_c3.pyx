@@ -15,16 +15,13 @@ cdef public struct DoublePair:
     double x
     double y
 
-
 cdef struct IntPair:
     int x
     int y
 
-
 cdef struct IntPairList:
     IntPair* data
     int size
-
 
 cdef class IntPairList2:
     cdef int size
@@ -130,6 +127,7 @@ cdef class BaseSprite:
     cdef public object rect
     cdef public bint in_sprite_list, keep_image
     cdef public str group_name
+    cdef int sprite_quality
     def __init__(self,
                  object app_handler,
                  group_name,
@@ -153,6 +151,9 @@ cdef class BaseSprite:
             print("group not found")
         self.group_name = group_name
 
+        # Settings:
+        self.sprite_quality = <int>S.SPRITE_QUALITY
+
     def update(self):
         """
         code executed on each tick if is on screen
@@ -164,8 +165,8 @@ cdef class BaseSprite:
             screen_dim = self.app_handler.map.entity_manager.window_dimensions
             screen_x_start = screen_dim.x_start
             screen_y_start = screen_dim.y_start
-            self.x = <int>(self.coordinates_x - screen_x_start)
-            self.y = <int>(self.coordinates_y - screen_y_start)
+            self.x = <int>((self.coordinates_x/self.sprite_quality) - screen_x_start)
+            self.y = <int>((self.coordinates_y/self.sprite_quality) - screen_y_start)
             self.rect.center = self.x + (self.size_x // 2), self.y + (self.size_y // 2)
 
 
@@ -193,6 +194,7 @@ cdef class BaseSprite:
         pass
         #self.image = pil_to_sdl2(self.app_handler.app.renderer, new_image)
         #self.rect = self.image.get_rect()
+
 
 cdef class StaticEntity(BaseSprite):
     cdef public EntityManager entity_manager
@@ -315,7 +317,7 @@ cdef class MovingEntity(StaticEntity):
         self.coordinates_x += self.x_speed
         self.coordinates_y += self.y_speed
         self.entity_manager.update_grid(self)
-        StaticEntity.refresh(self)
+        StaticEntity.refresh(self) #todo next lundi : trouver une putain de solution pour les coodonnées rapprochées suite au zoom + baisse qualité
 
 
 cdef class EntityManager:
@@ -397,7 +399,7 @@ cdef class EntityManager:
         else:
             raise ArgumentError("this entity already exists")
 
-    cdef void update_grid(self, MovingEntity entity):
+    cpdef void update_grid(self, MovingEntity entity):
         cdef IntPair new_grid_coord = self.get_grid(entity.coordinates_x, entity.coordinates_y)
         cdef IntPair new_giant_grid
         if entity.dynamic_grid_x != new_grid_coord.x or entity.dynamic_grid_y != new_grid_coord.y:
@@ -421,7 +423,6 @@ cdef class EntityManager:
 
             if entity.is_giant:
                 new_giant_grid = self.get_giant_grid(entity.coordinates_x, entity.coordinates_y)
-                #print(f"{new_giant_grid} + {entity.giant_grid_x} + {entity.giant_grid_y}")
                 if new_giant_grid.x != entity.giant_grid_x or new_giant_grid.y != entity.giant_grid_y:
                     self.giant_at[entity.giant_grid_x][entity.giant_grid_y].remove(entity)
                     self.giant_at.setdefault(new_giant_grid.x, {}).setdefault(new_giant_grid.y, []).append(entity)
@@ -745,7 +746,7 @@ cdef class TestEntity3(TestEntity):
                  is_moving)
 
     def refresh(self):
-        self.coordinates_x = self.app_handler.mouse_x
-        self.coordinates_y = self.app_handler.mouse_y
+        self.coordinates_x = self.app_handler.mouse_x * self.sprite_quality
+        self.coordinates_y = self.app_handler.mouse_y * self.sprite_quality
         TestEntity.refresh(self)
 
