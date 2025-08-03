@@ -161,10 +161,10 @@ class AppHandler:
     def sort_sprite_group_bak(self):
         for key, group in self.group_list.items():
             if group.spritedict:
-                sorted_in_group_x = {sprite: value for sprite, value in sorted(group.spritedict.items(),
-                                                                               key=lambda item: item[0].x_c)}
-                sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(),
-                                                                             key=lambda item: item[0].y_c)}
+                sorted_in_group_y = {sprite: value for sprite, value in sorted(group.spritedict.items(),
+                                                                               key=lambda item: item[0].y_c)}
+                sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_y.items(),
+                                                                             key=lambda item: item[0].x_c)}
                 self.group_list.get(key).spritedict = sorted_in_group
 
     def sort_sprite_group(self):
