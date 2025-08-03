@@ -23,7 +23,7 @@ WIN_SIZE = WIN_W, WIN_H = 1000, 800
 FONT_SIZE: int = 14
 
 # FPS
-MAX_FPS: int = 0
+MAX_FPS: int = 60
 FPS_LIST_SIZE: int = 50
 
 # Map & Terrain

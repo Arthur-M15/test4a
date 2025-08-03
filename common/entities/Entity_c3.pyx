@@ -668,10 +668,10 @@ cdef class TestEntity(MovingEntity):
         self.collide_list.clear()
 
 def red_color():
-    return 255, 0, 0, 255
+    return 255, 0, 0, 150
 
 def green_color():
-    return 0, 255, 0, 255
+    return 0, 255, 0, 150
 
 cdef int get_distance(double xa, double xb, double ya, double yb):
     """
@@ -727,4 +727,25 @@ cdef class TestEntity2(TestEntity):
                  is_moving)
 
         self.bank_image_id = 1
+
+cdef class TestEntity3(TestEntity):
+    def __init__(self, object app_handler,
+                 EntityManager entity_manager,
+                 coord_x, coord_y,
+                 str group_name = "default",
+                 int radius = 10,
+                 int timer_group=1200,
+                 is_moving=False):
+        super().__init__( app_handler,
+                  entity_manager,
+                 coord_x, coord_y,
+                  group_name,
+                  radius,
+                  timer_group,
+                 is_moving)
+
+    def refresh(self):
+        self.coordinates_x = self.app_handler.mouse_x
+        self.coordinates_y = self.app_handler.mouse_y
+        TestEntity.refresh(self)
 

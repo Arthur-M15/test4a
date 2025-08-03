@@ -30,6 +30,8 @@ class AppHandler:
         self.cam_speed = 1
         self.cam_x_retenue = 0.0
         self.cam_y_retenue = 0.0
+        self.mouse_x = 0
+        self.mouse_y = 0
 
         # Map:
         self.map = Map(self)
@@ -66,7 +68,10 @@ class AppHandler:
 
         [self.map.entity_manager.add(CythonEntity.TestEntity2(self, self.map.entity_manager, i*200//half_size, j*200//half_size, is_moving=True)) for i in
          range(-half_size, half_size) for j in range(-half_size, half_size)]
-        #[self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i, 0)) for i in range(-300, 300, 10)]
+        [self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i, 0)) for i in range(-300, 300, 10)]
+        self.map.entity_manager.add(CythonEntity.TestEntity3(self, self.map.entity_manager, 0, 0))
+
+
         #entity = CythonEntity.TestEntity(self, self.map.entity_manager, 0, 0, is_moving=True)
         #self.map.entity_manager.add(entity)
 
@@ -145,6 +150,8 @@ class AppHandler:
 
         if 'r_click' in game_app.keybind:
             pass
+
+        self.mouse_x, self.mouse_y = self.get_mouse_pos()
 
     def get_mouse_pos(self):
             x, y = pygame.mouse.get_pos()
