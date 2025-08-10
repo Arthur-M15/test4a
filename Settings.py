@@ -5,6 +5,8 @@ from pygame._sdl2.video import Window, Renderer, Texture, Image as Pyimage
 
 from random import randrange, uniform
 
+from pygame.examples.moveit import SPRITE_WIDTH
+
 # Paths
 BIOME_SPRITE_DIR_PATH: str = "common/biomes"
 FONTS_DIR_PATH: str = "assets/fonts"
@@ -15,21 +17,24 @@ WIN_H: int
 WIN_SIZE: tuple[int, int]
 
 # Choose a resolution
-WIN_SIZE = WIN_W, WIN_H = 1000, 1000
+WIN_SIZE = WIN_W, WIN_H = 1000, 800
 # WIN_SIZE = WIN_W, WIN_H = 1600, 900
 # WIN_SIZE = WIN_W, WIN_H = 1920, 1080
+
+# Sprite quality
+SPRITE_QUALITY = 0
 
 # Font
 FONT_SIZE: int = 14
 
 # FPS
-MAX_FPS: int = 0
+MAX_FPS: int = 120
 FPS_LIST_SIZE: int = 50
 
 # Map & Terrain
-BASE_SPEED: float = 1.0
+BASE_SPEED: float = 500.0
 CHUNK_SIZE: int = 12
-CHUNK_LOAD_DISTANCE: int = 20
+CHUNK_LOAD_DISTANCE: int = 10
 TILE_PIXEL_SIZE: int = 56
 CHUNK_VARIATIONS: float = 0.05
 HARMONIC_NUMBER: int = 5
@@ -51,10 +56,11 @@ VARIANTS_NUMBER: int = 8
 CHUNK_THREAD_NUMBER: int = 1
 
 # Grid / Entity
-GRID_SIZE: int = 40
+GRID_SIZE: int = 600
+GIANT_GRID_SIZE_FACTOR: int = 5
 SPRITE_MARGIN: int = 50
-MAX_LOCAL_COUNTER: int = 10
-MAX_GRID_LAYER: int = 10
+MAX_LOCAL_COUNTER: int = 60
+MAX_GRID_LAYER: int = 1
 
 # Environment config
 ENVIRONMENT: int = 0  # 0 = Default, 12 = TILESGEN, 10 = TEST_SERIAL, 11 = TEST, 20 = BETA, 30 = PROD

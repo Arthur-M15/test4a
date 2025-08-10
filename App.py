@@ -1,10 +1,9 @@
+
 import pygame.mouse
 import sys
 from Map import *
 
-#from common.entities.properties.TestEntityX import *
-from common.entities.properties.TestEntityX_c import *
-from common.entities.Entity_c import BaseSprite
+import common.entities.Entity_c3 as CythonEntity
 from test_tools import *
 
 
@@ -26,9 +25,11 @@ class AppHandler:
         self.detection_y_start = self.coord_y - self.detection_range
         self.detection_x_end = self.coord_x + self.detection_range
         self.detection_y_end = self.coord_y + self.detection_range
-        self.cam_speed = 50
+        self.cam_speed = 1
         self.cam_x_retenue = 0.0
         self.cam_y_retenue = 0.0
+        self.mouse_x = 0
+        self.mouse_y = 0
 
         # Map:
         self.map = Map(self)
@@ -45,21 +46,18 @@ class AppHandler:
             "entity": pg.sprite.Group(),
             "default": pg.sprite.Group()
         }
-        """ todo later:
-        self.floor_group = pg.sprite.Group()
-        self.entity_group = pg.sprite.Group()
-        self.atmosphere_group = pg.sprite.Group()
-        """
         self.sprite_lock = threading.Lock()
 
-        # Tests:
+        # Logs:
         self.logger = AppInformation(self)
 
-        test_size = 20
-        self.central_sprite = BaseSprite(self, "default", (test_size, test_size))
-        pil_image = PILImage.new("RGBA", (test_size, test_size), (50, 50, 50, 50))
-        self.central_sprite.load_image(pil_image)
-        [self.map.entity_manager.add(TestEntity4(self, 0.0, 0.0)) for _ in range(10000)]
+        # Final initialisation :
+        self.set_screen_size()
+
+        [self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i, 0, is_moving=True)) for i in range(-30000, 30000, 10)]
+        self.map.entity_manager.add(CythonEntity.TestEntity3(self, self.map.entity_manager, 0, 0))
+        self.logger.print_info()
+        pass
 
     def set_screen_size(self):
         self.zoom_factor = self.get_zoom()
@@ -110,13 +108,13 @@ class AppHandler:
     def interact(self):
         # Camera movement:
         if 'up' in game_app.keybind:
-            self.coord_y += self.get_cam_shift("y", -1)
+            self.coord_y += self.get_cam_shift("y", -BASE_SPEED / (self.app.clock.get_fps() + 1))
         if 'down' in game_app.keybind:
-            self.coord_y += self.get_cam_shift("y", 1)
+            self.coord_y += self.get_cam_shift("y", BASE_SPEED / (self.app.clock.get_fps() + 1))
         if 'left' in game_app.keybind:
-            self.coord_x += self.get_cam_shift("x", -1)
+            self.coord_x += self.get_cam_shift("x", -BASE_SPEED / (self.app.clock.get_fps() + 1))
         if 'right' in game_app.keybind:
-            self.coord_x += self.get_cam_shift("x", 1)
+            self.coord_x += self.get_cam_shift("x", BASE_SPEED / (self.app.clock.get_fps() + 1))
 
         # Camera zoom:
         if 'mouse_up' in game_app.keybind:
@@ -132,19 +130,11 @@ class AppHandler:
         if 'r_click' in game_app.keybind:
             pass
 
+        self.mouse_x, self.mouse_y = self.get_mouse_pos()
+
     def get_mouse_pos(self):
             x, y = pygame.mouse.get_pos()
             return self.screen_x_start + (x // self.zoom_factor), self.screen_y_start + (y // self.zoom_factor)
-
-
-    def sort_sprite_group_bak(self):
-        for key, group in self.group_list.items():
-            if group.spritedict:
-                sorted_in_group_x = {sprite: value for sprite, value in sorted(group.spritedict.items(),
-                                                                               key=lambda item: item[0].x)}
-                sorted_in_group = {sprite: value for sprite, value in sorted(sorted_in_group_x.items(),
-                                                                             key=lambda item: item[0].y)}
-                self.group_list.get(key).spritedict = sorted_in_group
 
     def sort_sprite_group(self):
         for key, group in self.group_list.items():
@@ -158,7 +148,7 @@ class AppHandler:
         self.update_zone()
         self.interact()
         self.update_chunks()
-        self.map.entity_manager.update()
+        self.map.entity_manager.execute()
         self.map.manager.update()
         self.update_sprite_groups()
         self.sort_sprite_group()
@@ -232,6 +222,8 @@ class AppInformation:
         self.min_fps = 9999
         self.total_tiles = 0
         self.function_delay = 0
+        self.collide_entity_list = []
+        self.default_message = ""
 
     def update_fps(self):
         fps = self.app_handler.app.get_fps()
@@ -250,24 +242,37 @@ class AppInformation:
         self.update_fps()
         self.update_sprite_count()
 
-    def print_info(self, sprites = True, tiles = False, fps = True, minimum_fps = True, coordinates = True, corner_coordinates = True, function_delay=True):
+    def print_info(self,
+                   sprites = True,
+                   tiles = False,
+                   fps = True,
+                   minimum_fps = True,
+                   coordinates = True,
+                   corner_coordinates = True,
+                   function_delay=True,
+                   collide_entity_list=False,
+                   default_message=True):
         self.update_information()
         info_list = []
         if sprites:
-            info_list.append(f"Sprite count: {self.sprite_count}; ")
+            info_list.append(f"Sprite count: {self.sprite_count}")
         if tiles:
-            info_list.append(f"Tiles count: {normalize_text(self.total_tiles)}; ")
+            info_list.append(f"Tiles count: {normalize_text(self.total_tiles)}")
         if fps:
-            info_list.append(f"FPS: {normalize_text(self.fps)}; ")
+            info_list.append(f"FPS: {normalize_text(self.fps)}")
         if minimum_fps:
-            info_list.append(f"Minimum FPS: {normalize_text(self.min_fps)}; ")
+            info_list.append(f"Minimum FPS: {normalize_text(self.min_fps)}")
         if coordinates:
-            info_list.append(f"Coord: {normalize_text(self.app_handler.get_coordinates(), 12)}; ")
+            info_list.append(f"Coord: {normalize_text(self.app_handler.get_coordinates(), 12)}")
         if corner_coordinates:
-            info_list.append(f"Corner: {normalize_text(f"({self.app_handler.screen_x_start}, {self.app_handler.screen_y_start})", 16)}; ")
+            info_list.append(f"Corner: {normalize_text(f"({self.app_handler.screen_x_start}, {self.app_handler.screen_y_start})", 16)}")
         if function_delay:
-            info_list.append(f"Function Delay: {normalize_text(self.function_delay*1000, 8)} (ms); ")
-        infos = "".join(info_list)
+            info_list.append(f"Function Delay: {normalize_text(self.function_delay*1000, 8)} (ms)")
+        if collide_entity_list:
+            info_list.append(f"collide_entity_list: {self.collide_entity_list}")
+        if default_message:
+            info_list.append(f"Custom m: {self.default_message}")
+        infos = "; ".join(info_list)
         print(f"\r{infos}", end='')
 
 
@@ -279,11 +284,11 @@ class App:
         self.renderer = Renderer(self.window)           # Rendering the content in the window
         self.renderer.draw_color = (0, 0, 0, 255)       # Fill it with black
         self.clock = pg.time.Clock()
-        self.app_handler = AppHandler(self)
         self.dt = 0.0
         self.keybind = {}
         self.fps = []
         self.scale = 1
+        self.app_handler = AppHandler(self)
 
     def update_screen(self):
         self.dt = self.clock.tick(MAX_FPS) * 0.001  # Time for each frame

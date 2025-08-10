@@ -3,7 +3,7 @@ import math
 from MapHandler import *
 from typing import Any, Dict, Optional
 from common.biomes.BiomeManager import *
-from common.entities.Entity_c import EntityManager2
+import common.entities.Entity_c3 as CythonEntity
 from common.biomes.Chunk_c import Chunk
 
 
@@ -11,7 +11,7 @@ class Map:
     def __init__(self, app_handler, seed=0, height=100):
         self.app_handler = app_handler
         self.chunks = {}
-        self.entity_manager = EntityManager2(self)
+        self.entity_manager = CythonEntity.EntityManager(self.app_handler)
         self.seed = seed
 
         #normalized offset is on height=100

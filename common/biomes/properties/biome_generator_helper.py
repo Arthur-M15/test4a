@@ -4,6 +4,7 @@ import numpy as np
 import pygame as pg
 import Settings
 
+
 def assets_generator(main_color, next_color, color_variants_number=5):
     """
     Create a double list of images.
@@ -78,17 +79,14 @@ def tile_generator(rgb, scale_factor=20, additional_pixel=None):
 
     if additional_pixel:
         image = add_pixel_list(image, additional_pixel)
-
+    scale = scale_factor
     image = image.convert("RGBA")
-    enlarged_size = (size[0] * scale_factor, size[1] * scale_factor)
+    enlarged_size = (size[0] * scale, size[1] * scale)
     image = image.resize(enlarged_size, imagePIL.NEAREST)
     image = image.rotate(45, expand=True, resample=imagePIL.NEAREST)
     image = auto_crop_left(image)
     image = auto_crop_right(image)
-    image.save("C:/Users/Arthur/PycharmProjects/test4a/name.png")
-
-    if Settings.ENVIRONMENT == 12:
-        image = imagePIL.new("RGBA", (Settings.TILE_PIXEL_SIZE, Settings.TILE_PIXEL_SIZE), rgb)
+    image.save("name.png")
 
     return image, pil_to_surface(image)
 

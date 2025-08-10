@@ -1,7 +1,7 @@
 from __future__ import annotations
-import warnings
+
 import time
-from typing import Iterator, Callable
+from typing import Iterator
 
 import Settings as S
 from common.biomes.properties.biome_generator_helper import pil_to_sdl2
@@ -49,7 +49,6 @@ class BaseSprite:
         self.entity_coord: Coordinates = coordinates
         self.x: int = 0
         self.y: int = 0
-        self.intern_zoom_index = None
         self.width, self.height = size
         self.in_sprite_list: bool = False
         if group_name not in app_handler.group_list.keys():
@@ -60,7 +59,6 @@ class BaseSprite:
     def update(self) -> None:
         if self.in_sprite_list:
             self.update_position()
-
 
     def update_position(self) -> None:
         screen_x: int
@@ -104,7 +102,6 @@ class Entity(BaseSprite):
     size: Tuple[int, int]
     radius: int
     timer_group: int
-
     def __init__(self, app_handler, size: Tuple[int, int], radius: int = 10, timer_group: int = 1,
                  group: str = "default", coordinates: Coordinates = Coordinates(0.0, 0.0)) -> None:
         super().__init__(app_handler, group, size, coordinates)
@@ -189,7 +186,6 @@ class EntityManager2:
                 entity.refresh()
                 if need_process:
                     entity.process()
-                    pass
         self.app_handler.logger.function_delay = time.time() - t
         for event in self.event_list:
             event.execute()
@@ -206,22 +202,12 @@ class EntityManager2:
         self.entities.remove_item(s_id)
 
 
-class GridSquare:
-    def __init__(self) -> None:
-        self.entity_list: List[Entity] = []
-
-
 class EntityList2:
     def __init__(self) -> None:
         self.__id_entity: Dict[int, Entity] = {}
         self.__timer_entity: Dict[int, List[Entity]] = {}
         self.__coord_entity: Dict[Tuple[int, int], List[Entity]] = {}
-        self.__coord_entity2: Dict[Tuple[int, int], List[Entity]] = {}
-
         self.nearby_zones = NearbyZones()
-
-
-        self.__nearby_cache: Dict[Tuple[int, int], List[Entity]] = {}
 
     def add_item(self, timer: int, serial_id: int, entity: Entity) -> None:
         self.__id_entity[serial_id] = entity
@@ -236,8 +222,10 @@ class EntityList2:
         if not self.__timer_entity[timer_group]:
             del self.__timer_entity[timer_group]
         if entity.coord_grid:
-            #todo later: remplacer la ligne ci-dessous : juste supprimer l'objet au lieu de réécrire la liste.
-            self.__coord_entity[entity.coord_grid] = [e for e in self.__coord_entity[entity.coord_grid] if e.id != serial_id]
+            for i, e in enumerate(self.__coord_entity[entity.coord_grid]):
+                if e.id == serial_id:
+                    del self.__coord_entity[entity.coord_grid][i]
+                    break
             if not self.__coord_entity[entity.coord_grid]:
                 del self.__coord_entity[entity.coord_grid]
 
@@ -257,43 +245,10 @@ class EntityList2:
             entity.coord_grid = new_coord_grid
             self.__coord_entity.setdefault(entity.coord_grid, []).append(entity)
 
-
-    def update_coord_group(self, entity: Entity, new_coordinates: Tuple[int, int]) -> None:
-        if entity.coord_grid is None:
-            raise ValueError("This object does not have a coordinate grid")
-        self.__coord_entity[entity.coord_grid] = [e for e in self.__coord_entity[entity.coord_grid] if e.id != entity.id]
-        if not self.__coord_entity[entity.coord_grid]:
-            del self.__coord_entity[entity.coord_grid]
-        self.__coord_entity.setdefault(new_coordinates, []).append(entity)
-        entity.coord_grid = new_coordinates
-
-    def get_nearby_entities(self, grid_coordinates: Tuple[int, int], size: int = 1) -> List[Entity]:
-        entity_list: List[Entity] = []
-        for i in range(-size, size + 1):
-            for j in range(-size, size + 1):
-                coordinates = (grid_coordinates[0] + i, grid_coordinates[1] + j)
-                if coordinates in self.__coord_entity:
-                    entity_list.extend(self.__coord_entity[coordinates])
-        return entity_list
-
-    #current:
     def get_nearby_entities2(self, coordinates: Tuple[float, float], grid: Tuple[int, int], size: int = 1) -> Iterator[Entity]:
-        for coord in self.nearby_zones.get_zones(coordinates, grid, size):
+        for coord in self.nearby_zones.get_zones3(coordinates, grid, size):
             for entity in self.__coord_entity.get(coord, []):
                 yield entity
-    #todo : optimiser ce put*** de get_nearby_entities(), car le 3 marche encore moins bien.
-    """    def get_nearby_entities3(self, coordinates: Tuple[float, float], grid: Tuple[int, int], size: int = 1) -> List[Entity]:
-            e_list: List[Entity] = []
-            if self.__nearby_cache.get(grid) is None:
-                for coord in self.nearby_zones.get_zones2(coordinates, grid, size):
-                    e_list.extend(self.__coord_entity.get(coord, []))
-                self.__nearby_cache[grid] = e_list
-                return e_list
-            else:
-                return self.__nearby_cache.get(grid)"""
-
-    def flush_cache(self) -> None:
-        self.__nearby_cache.clear()
 
     def get_entities(self):
         return self.__id_entity.values()
@@ -324,58 +279,27 @@ class EntityEvent:
 
 class NearbyZones:
     def __init__(self) -> None:
-        self.mask: List[List[List[Tuple[int, int]]]] = get_patterns(S.MAX_GRID_LAYER)
         self.mask2: List[List[Tuple[int, int]]] = get_patterns2(S.MAX_GRID_LAYER)
         self.__coord_cache: Dict[Tuple[int, int], Dict[int, List[Tuple[int, int]]]] = {}
 
-    def get_zones(self, coordinates: Tuple[float, float], grid_coordinates: Tuple[int, int], size: int) -> Iterator[Tuple[int, int]]:
+    def get_zones3(self, coordinates: Tuple[float, float], grid_coordinates: Tuple[int, int], size: int) -> Iterator[Tuple[int, int]]:
         way: int = get_way(coordinates[0], coordinates[1], S.GRID_SIZE)
-        if size > S.MAX_GRID_LAYER:
-            warnings.warn("the size for nearby zones is too big ! zone list would be truncated.", RuntimeWarning)
-        for i, layer in enumerate(self.mask[way]):
-            if i > size:
-                break
-            for zone_coords in layer:
-                yield zone_coords[0]+grid_coordinates[0], zone_coords[1]+grid_coordinates[1]
+        square: Dict[int, List[Tuple[int, int]]] = self.__coord_cache.get(grid_coordinates, {})
+        if square and square.get(way, {}):
+            if square.get(way) is not None:
+                yield from square.get(way)
+        """
+        self.__coord_cache[grid_coordinates] = {
+            w: [(zone_coords[0] + grid_coordinates[0], zone_coords[1] + grid_coordinates[1]) for zone_coords in
+                self.mask2[w]] for w in range(4)}
+        """
 
-    def get_zones2(self, coordinates: Tuple[float, float], grid_coordinates: Tuple[int, int], size: int) -> List[Tuple[int, int]]:
-        x: int = int(coordinates[0])
-        y: int = int(coordinates[1])
-        way: int = get_way(x, y, S.MAX_GRID_LAYER)
+        self.__coord_cache.setdefault(grid_coordinates, {})[way] = [
+            (zone_coords[0] + grid_coordinates[0], zone_coords[1] + grid_coordinates[1]) for zone_coords in
+            self.mask2[way]]#"""
 
-        mask_length: int = ((2 + size) + 1) ** 2
-        if size > S.MAX_GRID_LAYER:
-            warnings.warn("the size for nearby zones is too big ! zone list would be truncated.", RuntimeWarning)
-            mask_length = len(self.mask2[way])
-        return [(zone_coords[0]+grid_coordinates[0], zone_coords[1]+grid_coordinates[1]) for zone_coords in self.mask2[way][:mask_length]]
+        yield from self.__coord_cache.get(grid_coordinates)[way]
 
-
-def get_patterns(size: int) -> List[List[List[Tuple[int, int]]]]:
-    pattern_list: List[List[List[Tuple[int, int]]]] = []
-    if size == 0:
-        return pattern_list
-    pattern_name: List[str] = ["up", "down", "left", "right"]
-    for p in pattern_name:
-        turn_pattern: bool
-        reverse: int
-        if p == "right" or p == "left":
-            turn_pattern = True
-        else:
-            turn_pattern = False
-        if p == "down" or p == "left":
-            reverse = -1
-        else:
-            reverse = 1
-        pattern_layer: List[List[Tuple[int, int]]] = [[(0, 0)]]
-        for i in range(1, size+1):
-            pattern: List[Tuple[int, int]] = []
-            pattern.extend(get_opposite(i, i*reverse, turn_pattern))
-            for j in range((2*i)-1):
-                pattern.extend(get_border(i, (i-j-1)*reverse, turn_pattern))
-            pattern.extend(get_opposite(i, -i*reverse, turn_pattern))
-            pattern_layer.append(pattern)
-        pattern_list.append(pattern_layer)
-    return pattern_list
 
 def get_patterns2(size: int) -> List[List[Tuple[int, int]]]:
     pattern_list: List[List[Tuple[int, int]]] = []
