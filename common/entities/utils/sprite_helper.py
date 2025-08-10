@@ -1,5 +1,6 @@
 from PIL import Image as PILImage
 from PIL import ImageDraw as PILDraw
+from math import sqrt
 
 
 def create_sprite_bank():
@@ -30,3 +31,37 @@ def green_color():
 
 def alpha_color():
     return 0, 0, 0, 0
+
+
+def truncate(im):
+    pixels = im.load()
+    w = im.width
+    h = im.height
+
+    new_w = w/sqrt(2)
+    new_h = h/sqrt(2)
+
+    left    = (w - new_w)//2
+    right   = w - left
+    top     = (h - new_h)//2
+    bottom  = h - top
+
+    im = im.crop((left, top, right, bottom))
+    return im
+
+
+def pixel_art(base_image, pixel_size):
+
+    image_size = base_image.size
+    sub_size = tuple(x//pixel_size for x in image_size)
+    upper_size =  tuple(x*2 for x in image_size)
+
+    base_image = base_image.resize(upper_size)
+    base_image = base_image.rotate(45, expand=True)
+    base_image = base_image.resize(sub_size, PILImage.NEAREST)
+    base_image = base_image.resize(upper_size, PILImage.NEAREST)
+    base_image = base_image.rotate(-45)
+    base_image = truncate(base_image)
+
+    return base_image
+
