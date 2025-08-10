@@ -152,7 +152,7 @@ class Unit(Process):
         y_matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
         matrix = [[0] * CHUNK_SIZE for _ in range(CHUNK_SIZE)]
 
-        size = int(CHUNK_SIZE * TILE_PIXEL_SIZE + TILE_PIXEL_SIZE / (4 * SPRITE_QUALITY))
+        size = int(CHUNK_SIZE * TILE_PIXEL_SIZE + TILE_PIXEL_SIZE / 4)
         canvas = PILImage.new("RGBA", (size, size), (0, 0, 0, 0))
 
         dominance_matrix = self.frontier_biome_list[frontier_biome]

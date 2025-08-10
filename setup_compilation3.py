@@ -4,7 +4,9 @@ from Cython.Build import cythonize
 setup(
     package=["common/entities"],
     ext_modules=cythonize(
-        ["common/entities/Entity_c3.pyx", "MapHandler.pyx"],
+        [
+            "common/entities/Entity_c3.pyx",
+            "MapHandler.pyx"],
         language_level="3"
     ),
 )

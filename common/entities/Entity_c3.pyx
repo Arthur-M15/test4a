@@ -1,11 +1,10 @@
 # cython: language_level=3
-
 import random
 from libc.stdlib cimport malloc, free
 from argparse import ArgumentError
 from libc.math cimport sqrt
+from .utils.sprite_helper import *
 
-from PIL import Image as PILImage
 from common.biomes.properties import pil_to_sdl2
 
 import Settings as S
@@ -15,13 +14,18 @@ cdef public struct DoublePair:
     double x
     double y
 
+
 cdef struct IntPair:
     int x
     int y
 
-cdef struct IntPairList:
-    IntPair* data
-    int size
+
+cdef struct IntQuatuor:
+    int x_start
+    int y_start
+    int x_end
+    int y_end
+
 
 cdef class IntPairList2:
     cdef int size
@@ -50,51 +54,6 @@ cdef class IntPairList2:
         if self.lst != NULL:
             free(self.lst)
             self.lst = NULL
-
-
-cdef struct IntQuatuor:
-    int x_start
-    int y_start
-    int x_end
-    int y_end
-
-"""class PyCoordinates(Coordinates):
-    def __init__(self, x, y ,w, h):
-        xc = <double>x
-        yc = <double>y
-        wc = <int>w
-        hc = <int>h
-        super().__init__(xc, yc, wc, hc)
-        print(x, y ,w, h)
-
-
-cdef class Coordinates:
-    cdef double x
-    cdef double y
-    cdef int width
-    cdef int height
-
-    def __init__(self, double x_val, double y_val, int width_v, int height_v):
-        self.x = x_val
-        self.y = y_val
-        self.width = width_v
-        self.height = height_v
-
-
-    cdef double get_distance(self, double x, double y):
-        cdef double dx = self.x - x
-        cdef double dy = self.y - y
-        return sqrt(dx * dx + dy * dy)
-
-    cdef DoublePair get_coordinates(self):
-        cdef DoublePair c
-        c.x, c.y = self.x, self.y
-        return c
-
-    cdef IntPair get_size(self):
-        cdef IntPair s
-        s.x, s.y = self.width, self.height
-        return s"""
 
 
 class PyBaseSprite(BaseSprite):
@@ -127,7 +86,6 @@ cdef class BaseSprite:
     cdef public object rect
     cdef public bint in_sprite_list, keep_image
     cdef public str group_name
-    cdef int sprite_quality
     def __init__(self,
                  object app_handler,
                  group_name,
@@ -151,8 +109,6 @@ cdef class BaseSprite:
             print("group not found")
         self.group_name = group_name
 
-        # Settings:
-        self.sprite_quality = <int>S.SPRITE_QUALITY
 
     def update(self):
         """
@@ -165,8 +121,8 @@ cdef class BaseSprite:
             screen_dim = self.app_handler.map.entity_manager.window_dimensions
             screen_x_start = screen_dim.x_start
             screen_y_start = screen_dim.y_start
-            self.x = <int>((self.coordinates_x/self.sprite_quality) - screen_x_start)
-            self.y = <int>((self.coordinates_y/self.sprite_quality) - screen_y_start)
+            self.x = <int>(self.coordinates_x - screen_x_start - (self.size_x//2))
+            self.y = <int>(self.coordinates_y - screen_y_start - (self.size_y//2))
             self.rect.center = self.x + (self.size_x // 2), self.y + (self.size_y // 2)
 
 
@@ -317,7 +273,7 @@ cdef class MovingEntity(StaticEntity):
         self.coordinates_x += self.x_speed
         self.coordinates_y += self.y_speed
         self.entity_manager.update_grid(self)
-        StaticEntity.refresh(self) #todo next lundi : trouver une putain de solution pour les coodonnées rapprochées suite au zoom + baisse qualité
+        StaticEntity.refresh(self)
 
 
 cdef class EntityManager:
@@ -346,9 +302,6 @@ cdef class EntityManager:
         self.entity_at = {}
         self.giant_at = {}
         self.moving_entity_at = {}
-
-        test_image_green = PILImage.new("RGBA", (20, 20), green_color())
-        test_image_red = PILImage.new("RGBA", (20, 20), red_color())
         self.image_bank = create_sprite_bank()
 
         #global env. variables:
@@ -476,7 +429,6 @@ cdef class EntityManager:
         cdef int x_max = <int>((coordinates_x + radius-1) // self.GRID_SIZE)
         cdef int y_min = <int>((coordinates_y - radius)   // self.GRID_SIZE)
         cdef int y_max = <int>((coordinates_y + radius-1) // self.GRID_SIZE)
-        #cdef list zones = []
 
         cdef IntPairList2 zones
         cdef int size = (x_max+1 - x_min) * (y_max+1 - y_min)
@@ -487,7 +439,6 @@ cdef class EntityManager:
         for i in range(x_min, x_max+1):
             for j in range(y_min, y_max+1):
                 zones.set(counter, i, j)
-                #zones.data[counter].x, zones.data[counter].y = i, j
                 counter += 1
         if zones.lst == NULL:
             raise MemoryError()
@@ -532,8 +483,6 @@ cdef class EntityManager:
         Fetch all the moving entities of the map and append the collision between themselves.
         :return: 
         """
-        #todo later : pour la détection des collisions, faire en sorte qu'un moving entity ne soit pas sur la static grid. Ce n'est pas nécessaire.
-        # Fetch sur la staticgrid et la dynamic grid pour chaque case au lieu de mettre à jour les deux grid par entity.
         cdef MovingEntity m_entity
         cdef StaticEntity s_entity
         cdef double x, y
@@ -606,6 +555,7 @@ cdef class EntityManager:
                 t_e_d_y = t_e_d_x.get(coord.y)
                 if t_e_d_y:
                     entity_list.extend(t_e_d_y)
+
         for s_entity in entity_list:
             add_collision(s_entity, m_entity)
 
@@ -614,67 +564,16 @@ cdef void add_collision(StaticEntity s_entity, MovingEntity m_entity):
     if s_entity.id == m_entity.id: return
     x_m, y_m = m_entity.coordinates_x, m_entity.coordinates_y
     x_s, y_s = s_entity.coordinates_x, s_entity.coordinates_y
+    s_entity.app_handler.logger.default_message = str([x_m, x_s, y_m, y_s])
     if s_entity.radius + m_entity.radius >= get_distance(x_m, x_s, y_m, y_s):
         if s_entity not in m_entity.collide_list:
             m_entity.collide_list.append(s_entity)
         if m_entity not in s_entity.collide_list:
             s_entity.collide_list.append(m_entity)
 
-cdef class TestEntity(MovingEntity):
-    cdef public bint is_moving
-    def __init__(self,
-                 object app_handler,
-                 EntityManager entity_manager,
-                 coord_x, coord_y,
-                 str group_name = "default",
-                 int radius = 10,
-                 int timer_group=1200,
-                 is_moving=False):
-        distance = 10000
-        """
-        coord_x = <double>random.uniform(-distance, distance)
-        coord_y = <double>random.uniform(-distance, distance)
-        #"""
-        super().__init__(app_handler, group_name, coord_x+80, coord_y, 20, 20, entity_manager, radius, timer_group)
-        self.timer_group = timer_group
-        self.is_moving = <bint>is_moving
-        self.process()
 
-    def process(self):
-        """
-        if self.is_moving:
-            if self.x_speed >= 0:
-                self.set_speed(-0.7, 0)
-            elif self.x_speed < 0:
-                self.set_speed(0.7, 0)
-        #"""
-        self.x_speed += random.uniform(-1, 1)
-        self.y_speed += random.uniform(-1, 1)#"""
 
-    def refresh(self):
-        #self.app_handler.logger.collide_entity_list = [e.id for e in self.collide_list]
-        if len(self.collide_list) > 0:
-            if self.image_id == 0:
-                self.image_id = 1
-                image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
-                self.load_image(image)
-        else:
-            if self.image_id == 1:
-                self.image_id = 0
-                #image = PILImage.new("RGBA", (20, 20), green_color())
-                image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
-                self.load_image(image)
-
-        MovingEntity.refresh(self)
-        self.collide_list.clear()
-
-def red_color():
-    return 255, 0, 0, 150
-
-def green_color():
-    return 0, 255, 0, 150
-
-cdef int get_distance(double xa, double xb, double ya, double yb):
+cdef inline int get_distance(double xa, double xb, double ya, double yb):
     """
     Calculates the distance between two 2D points.
         :param xa: Re(a)
@@ -687,20 +586,8 @@ cdef int get_distance(double xa, double xb, double ya, double yb):
     cdef double delta_y = yb - ya
     return <int>sqrt((delta_x * delta_x) + (delta_y * delta_y))
 
-cdef DoublePair dp_from_tuple(a, b):
-    cdef DoublePair r
-    r.x, r.y = <double>a, <double>b
-    return r
 
-def create_sprite_bank():
-    # todo later : change this function for a dynamic one
-    sprite_dict = {
-        0: [PILImage.new("RGBA", (20, 20), green_color()), PILImage.new("RGBA", (20, 20), red_color())],
-        1: [PILImage.new("RGBA", (800, 800), green_color()), PILImage.new("RGBA", (800, 800), red_color())]
-    }
-    return sprite_dict
-
-cdef int quick_cord_hash(int x, int y, int size=3):
+cdef inline int quick_cord_hash(int x, int y, int size=3):
     """
     Function that returns a hash according to its coordinates and hash size.
     :param x: coordinates of the object on x
@@ -708,8 +595,47 @@ cdef int quick_cord_hash(int x, int y, int size=3):
     :param size: Must be odd and >= 3
     :return: quick hash based on size^2 number of possibilities
     """
-    x_a, y_a = x % 3, y % 3
+    x_a, y_a = x % size, y % size
     return (size * x_a) + y_a
+
+
+cdef class TestEntity(MovingEntity):
+    cdef public bint is_moving
+    def __init__(self,
+                 object app_handler,
+                 EntityManager entity_manager,
+                 coord_x, coord_y,
+                 str group_name = "default",
+                 int radius = 10,
+                 int timer_group=1200,
+                 is_moving=False):
+        distance = 10000
+        super().__init__(app_handler, group_name, coord_x, coord_y, 20, 20, entity_manager, radius, timer_group)
+        self.timer_group = timer_group
+        self.is_moving = <bint>is_moving
+        self.process()
+
+    def process(self):
+        if not self.is_moving:
+            return
+        self.x_speed += random.uniform(-1, 1)
+        self.y_speed += random.uniform(-1, 1)#"""
+
+    def refresh(self):
+        if len(self.collide_list) > 0:
+            if self.image_id == 0:
+                self.image_id = 1
+                image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
+                self.load_image(image)
+        else:
+            if self.image_id == 1:
+                self.image_id = 0
+                image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
+                self.load_image(image)
+
+        MovingEntity.refresh(self)
+        self.collide_list.clear()
+
 
 cdef class TestEntity2(TestEntity):
     def __init__(self, object app_handler,
@@ -726,15 +652,16 @@ cdef class TestEntity2(TestEntity):
                   radius,
                   timer_group,
                  is_moving)
-
+        self.size_x, self.size_y = 2 * radius, 2 * radius
         self.bank_image_id = 1
 
-cdef class TestEntity3(TestEntity):
+
+cdef class TestEntity3(TestEntity2):
     def __init__(self, object app_handler,
                  EntityManager entity_manager,
                  coord_x, coord_y,
                  str group_name = "default",
-                 int radius = 10,
+                 int radius = 400,
                  int timer_group=1200,
                  is_moving=False):
         super().__init__( app_handler,
@@ -744,9 +671,9 @@ cdef class TestEntity3(TestEntity):
                   radius,
                   timer_group,
                  is_moving)
+        print(f"{self.is_giant} - m")
 
     def refresh(self):
-        self.coordinates_x = self.app_handler.mouse_x * self.sprite_quality
-        self.coordinates_y = self.app_handler.mouse_y * self.sprite_quality
+        self.coordinates_x = self.app_handler.mouse_x
+        self.coordinates_y = self.app_handler.mouse_y
         TestEntity.refresh(self)
-

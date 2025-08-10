@@ -22,7 +22,7 @@ WIN_SIZE = WIN_W, WIN_H = 1000, 800
 # WIN_SIZE = WIN_W, WIN_H = 1920, 1080
 
 # Sprite quality
-SPRITE_QUALITY = 4 # Lower is better
+SPRITE_QUALITY = 0
 
 # Font
 FONT_SIZE: int = 14
