@@ -4,6 +4,7 @@ import sys
 from Map import *
 
 import common.entities.Entity_c3 as CythonEntity
+import common.entities.properties.TestEntity as TestEntity
 from test_tools import *
 
 
@@ -54,7 +55,9 @@ class AppHandler:
         # Final initialisation :
         self.set_screen_size()
 
-        [self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i, 0, is_moving=True)) for i in range(-30000, 30000, 10)]
+        #[self.map.entity_manager.add(CythonEntity.TestEntity(self, self.map.entity_manager, i, 0, is_moving=True)) for i in range(-30000, 30000, 10)]
+        [self.map.entity_manager.add(TestEntity.TestEntityPy(self, self.map.entity_manager, i, 0)) for i
+         in range(-50000, 50000, 5)]
         self.map.entity_manager.add(CythonEntity.TestEntity3(self, self.map.entity_manager, 0, 0))
         self.logger.print_info()
         pass

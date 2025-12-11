@@ -164,6 +164,7 @@ cdef class StaticEntity(BaseSprite):
     cdef public list link_id_list
     cdef public int bank_image_id
     cdef public int image_id
+    cdef public bint draw_img
 
     #need to free:
     cdef IntPairList2 grid
@@ -199,6 +200,7 @@ cdef class StaticEntity(BaseSprite):
 
         #global env. variables:
         self.SPRITE_MARGIN = S.SPRITE_MARGIN
+        self.draw_img = True
 
     cdef bint pos_is_on_screen(self):
         cdef int x_s = self.entity_manager.window_dimensions.x_start
@@ -219,13 +221,14 @@ cdef class StaticEntity(BaseSprite):
         code executed on each tick
         """
         self.counter += 1
-        if self.in_sprite_list and not self.pos_is_on_screen():
-            self.unload_from_screen()
-        elif not self.in_sprite_list and self.pos_is_on_screen():
-            if self.image is None or self.rect is None:
-                image_list = self.entity_manager.image_bank[self.bank_image_id]
-                self.load_image(image_list[self.image_id])
-            self.load_on_screen()
+        if self.draw_img:
+            if self.in_sprite_list and not self.pos_is_on_screen():
+                self.unload_from_screen()
+            elif not self.in_sprite_list and self.pos_is_on_screen():
+                if self.image is None or self.rect is None:
+                    image_list = self.entity_manager.image_bank[self.bank_image_id]
+                    self.load_image(image_list[self.image_id])
+                self.load_on_screen()
 
     cdef void process(self):
         """
@@ -608,7 +611,8 @@ cdef class TestEntity(MovingEntity):
                  str group_name = "default",
                  int radius = 10,
                  int timer_group=1200,
-                 is_moving=False):
+                 is_moving=False,
+                 draw_img=True):
         distance = 10000
         super().__init__(app_handler, group_name, coord_x, coord_y, 20, 20, entity_manager, radius, timer_group)
         self.timer_group = timer_group
@@ -619,19 +623,20 @@ cdef class TestEntity(MovingEntity):
         if not self.is_moving:
             return
         self.x_speed += random.uniform(-1, 1)
-        self.y_speed += random.uniform(-1, 1)#"""
+        self.y_speed += random.uniform(-1, 1)
 
     def refresh(self):
-        if len(self.collide_list) > 0:
-            if self.image_id == 0:
-                self.image_id = 1
-                image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
-                self.load_image(image)
-        else:
-            if self.image_id == 1:
-                self.image_id = 0
-                image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
-                self.load_image(image)
+        if self.draw_img:
+            if len(self.collide_list) > 0:
+                if self.image_id == 0:
+                    self.image_id = 1
+                    image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
+                    self.load_image(image)
+            else:
+                if self.image_id == 1:
+                    self.image_id = 0
+                    image = self.entity_manager.image_bank[self.bank_image_id][self.image_id]
+                    self.load_image(image)
 
         MovingEntity.refresh(self)
         self.collide_list.clear()

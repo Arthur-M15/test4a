@@ -1,4 +1,4 @@
-# Game project on python 🐍 (Version 0.5)
+# Game project on python 🐍 (Version 0.6)
 
 This project is an experimental game, which intends to lean new algorithms and working for fun.
 
@@ -46,7 +46,8 @@ To run the game as a python project, you need at least:
 - numpy (v2.2.1)
 - pillow (v11.1.0)
 - pygame (v2.6.1)
-
+- Cython 
+ 
 Execute the App.py file to start the game.
 
 ## What's next ?
